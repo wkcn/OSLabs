@@ -1,0 +1,10 @@
+Linux 下制作虚拟软盘镜像
+http://wenix.blog.51cto.com/874806/364816
+linux下dd命令详解
+http://www.cnblogs.com/licheng/archive/2008/03/21/1116492.html
+<x86 PC汇编语言, 设计与接口> - 作者：（美国）马兹迪（Muhammad Ali Mazidi） （美国）考西（Danny Causey） （美国）马兹迪（Janice Gillispie Mazidi） 译者：高升 合著者：王筱珍
+<x86汇编语言-从实模式到保护模式> - 李
+忠 王晓波 余 洁 著
+<操作系统原理实验课件 - 实验1> - 凌应标
+<NASM的汇编指令>
+<nasm介绍>
