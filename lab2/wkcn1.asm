@@ -6,13 +6,16 @@
 	;totalDelay = outDelay * inDelay
 	org 0A100H
 	outDelay equ 50000
-	inDelay equ 1800
+	inDelay equ 2000
 
 	;80 x 25
-	MIN_X equ 10
-	MIN_Y equ 10
+	SCREEN_X equ 80
+	SCREEN_Y equ 25
+	;Ball in this Rect
+	MIN_X equ 40
+	MIN_Y equ 0
 	MAX_X equ 80
-	MAX_Y equ 25
+	MAX_Y equ 13
 
 	;set data segment
 	;mov ax,07c0h
@@ -50,10 +53,10 @@
 
 START:
 	call DELAY
-	call PLAY
+	;call PLAY
 	SINGLE pos1,vel1,char1,color1
 	SINGLE pos2,vel2,char2,color2
-	SINGLE pos3,vel3,char3,color3
+	;SINGLE pos3,vel3,char3,color3
 	call SHOWNAME
 	int 20h
 	jmp START
@@ -73,13 +76,14 @@ SHOWNAME:
 	
 	mov si,message
 
-	mov di, 12*80 + 50
+	mov di, (1*80 + 1) * 2
 
 	mov dl,[msgColor]
 
 	printChar:
 		mov al,[si]
 		inc si
+		and dl,0Fh
 		mov ah,dl
 		add dl,1
 		mov [es:di],ax
@@ -109,24 +113,24 @@ UPDATEPOS:
 	;update x
 	add ah,bh
 	cmp ah,MIN_X
-	jne XNZ
-	;if x == MIN_X
+	ja XNZ
+	;if x <= MIN_X
 	mov bh,1
 XNZ:
 	CMP ah,MAX_X-1
-	jl	XNF
+	jb	XNF
 	;if x >= MAX_X-1
 	mov bh,-1
 XNF:
 	;update y
 	add al,bl
 	cmp al,MIN_Y
-	jne YNZ
-	;if y == MIN_Y
+	ja YNZ
+	;if y <= MIN_Y
 	mov bl,1
 YNZ:
 	CMP al,MAX_Y-1
-	jl	YNF
+	jb	YNF
 	;if y >= MAX_Y-1
 	mov bl,-1
 YNF:
@@ -139,7 +143,7 @@ SETPOINTER:
 	mov ax, 0
 	mov bx, [pos] ; bx = (x,y)
 	mov al, bl
-	mov cx, MAX_X
+	mov cx, SCREEN_X
 	mul cx ; ax *= MAX_X namely ax = y * MAX_X
 	mov cx, 0
 	mov cl, bh
@@ -166,7 +170,7 @@ ELIMINATE:
 
 
 DATA:
-	message db 'WuKan 14348134'
+	message db "WuKan's Program 1"
 	msgLen	dw $-message
 	msgColor db 00h
 
@@ -176,7 +180,7 @@ DATA:
 	pos	dw	0000h	;from 0,0
 	vel	dw	0101h	;v = (1,1)
 	char db '*' 
-	color db 07H
+	color db 03H
 
 	;elements
 	pos1 dw 0000h
@@ -184,7 +188,7 @@ DATA:
 	char1 db '*'
 	color1 db 03H ;green 
 	
-	pos2 dw 1010h
+	pos2 dw 1003h
 	vel2 dw 01FFh
 	char2 db 'A'
 	color2 db 0CFH ;twinkle red and light white

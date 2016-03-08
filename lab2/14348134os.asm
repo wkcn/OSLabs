@@ -74,6 +74,7 @@ WriteIVT 21h,WKCNINT21H
 %endmacro
 
 %macro LoadProgram 5  
+	call CLEARSCREEN
 	;设置段地址
 	mov ax,cs
 	mov es,ax
@@ -109,8 +110,10 @@ START:
 	cmp al,PEND + '0'
 	jg START ; al > PEND
 	;valid
-	call CLEARSCREEN
-	LoadProgram 1,0,0,0,2 ;扇区数, 驱动器号, 磁头号, 柱面号, 起始扇区号
+	sub al,'0'
+	inc al ; 起始扇区号为1, 第一个用户程序在扇区2, 对应输入数字1
+	mov [sectorNum],al
+	LoadProgram PEND-PSTART,0,0,0,[sectorNum] ;扇区数, 驱动器号, 磁头号, 柱面号, 起始扇区号
 jmp START
 
 DELAY:
@@ -160,6 +163,8 @@ DATA:
 
 	msg2	db	'Input number (',PSTART + '0','~',PEND + '0',') to select program: '
 	msgLen2	dw	$ - msg2
+
+	sectorNum db 0
 
 times 510-($-$$) db 0  
 dw  0xaa55
