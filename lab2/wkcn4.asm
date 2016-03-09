@@ -6,7 +6,7 @@
 	;totalDelay = outDelay * inDelay
 	org 0A100H
 	outDelay equ 50000
-	inDelay equ 2000
+	inDelay equ 3000
 
 	;80 x 25
 	SCREEN_X equ 80
@@ -49,6 +49,10 @@
 	mov [%1], ax
 	mov ax, [vel]
 	mov [%2], ax
+	mov ax, [char]
+	mov [%3], ax
+	mov ax, [color]
+	mov [%4], ax
 %endmacro
 
 START:
@@ -63,7 +67,8 @@ START:
 
 PLAY:
 	call SETPOINTER
-	call ELIMINATE
+	;不清除
+	;call ELIMINATE
 
 	call UPDATEPOS	
 
@@ -136,6 +141,15 @@ YNZ:
 YNF:
 	mov [pos],ax
 	mov [vel],bx
+	;update color and char
+	mov al, [char]
+	inc al
+	cmp al,'Z'
+	jna LESSZ
+	mov al,'A'
+LESSZ:
+	mov [char],al
+	inc byte[color]
 	ret
 
 SETPOINTER:
@@ -157,6 +171,7 @@ SHOW:
 	;new
 	mov al, [char]
 	mov ah, [color]
+	and ah, 0Fh ; 去背景色
 	mov [es:bx],ax
 	ret
 
@@ -183,14 +198,14 @@ DATA:
 	color db 03H
 
 	;elements
-	pos1 dw 0000h
+	pos1 dw 2910h
 	vel1 dw 0101h
-	char1 db '*'
+	char1 db 'W'
 	color1 db 03H ;green 
 	
-	pos2 dw 1003h
+	pos2 dw 4018h
 	vel2 dw 01FFh
-	char2 db 'A'
+	char2 db 'K'
 	color2 db 0CFH ;twinkle red and light white
 
 	pos3 dw 2019h

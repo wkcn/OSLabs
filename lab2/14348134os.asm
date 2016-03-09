@@ -7,7 +7,7 @@ org 7c00h
 UserProgramOffset equ 0A100h
 ;程序的编号,第一个和最后一个
 PSTART	equ 1
-PEND	equ 4
+PEND	equ 5
 
 TextScreen equ 0B800h
 outDelay equ 50000
@@ -60,6 +60,12 @@ WriteIVT 21h,WKCNINT21H
 %endmacro
 
 %macro PrintStr 4 ;(message,msgLen,x,y) 
+	push ax
+	push bx
+	push cx
+	push dx
+	push es
+	push bp
 	mov ax,cs
 	mov es,ax
 	mov ah,13h
@@ -71,6 +77,12 @@ WriteIVT 21h,WKCNINT21H
 	mov bp,%1
 	mov cx,[%2]
 	int 10h
+	pop bp
+	pop es
+	pop dx
+	pop cx
+	pop bx
+	pop ax
 %endmacro
 
 %macro LoadProgram 5  
@@ -113,7 +125,7 @@ START:
 	sub al,'0'
 	inc al ; 起始扇区号为1, 第一个用户程序在扇区2, 对应输入数字1
 	mov [sectorNum],al
-	LoadProgram PEND-PSTART,0,0,0,[sectorNum] ;扇区数, 驱动器号, 磁头号, 柱面号, 起始扇区号
+	LoadProgram 1,0,0,0,[sectorNum] ;扇区数, 驱动器号, 磁头号, 柱面号, 起始扇区号
 jmp START
 
 DELAY:
@@ -140,6 +152,7 @@ CLEARSCREEN:
 
 WKCNINT20H:
 	;input ctrl+z, and quit
+	call PrintStr msg3,msgLen3,3,24
 	mov ah,01h
 	int 16h
 	jz  NOCZ	;没有按键
@@ -163,6 +176,9 @@ DATA:
 
 	msg2	db	'Input number (',PSTART + '0','~',PEND + '0',') to select program: '
 	msgLen2	dw	$ - msg2
+
+	msg3	db  'Input Ctrl + Z to return >.<'
+	msgLen3 dw	$ - msg3
 
 	sectorNum db 0
 

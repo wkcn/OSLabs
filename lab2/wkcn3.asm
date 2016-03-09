@@ -56,7 +56,7 @@ START:
 	;call PLAY
 	SINGLE pos1,vel1,char1,color1
 	SINGLE pos2,vel2,char2,color2
-	;SINGLE pos3,vel3,char3,color3
+	SINGLE pos3,vel3,char3,color3
 	call SHOWNAME
 	int 20h
 	jmp START

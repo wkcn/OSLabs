@@ -49,13 +49,17 @@
 	mov [%1], ax
 	mov ax, [vel]
 	mov [%2], ax
+	mov ax, [char]
+	mov [%3], ax
+	mov ax, [color]
+	mov [%4], ax
 %endmacro
 
 START:
 	call DELAY
 	;call PLAY
 	SINGLE pos1,vel1,char1,color1
-	SINGLE pos2,vel2,char2,color2
+	;SINGLE pos2,vel2,char2,color2
 	;SINGLE pos3,vel3,char3,color3
 	call SHOWNAME
 	int 20h
@@ -63,7 +67,8 @@ START:
 
 PLAY:
 	call SETPOINTER
-	call ELIMINATE
+	;不清除
+	;call ELIMINATE
 
 	call UPDATEPOS	
 
@@ -136,6 +141,15 @@ YNZ:
 YNF:
 	mov [pos],ax
 	mov [vel],bx
+	;update color and char
+	mov al, [char]
+	inc al
+	cmp al,'Z'
+	jna LESSZ
+	mov al,'A'
+LESSZ:
+	mov [char],al
+	inc byte[color]
 	ret
 
 SETPOINTER:
@@ -157,6 +171,7 @@ SHOW:
 	;new
 	mov al, [char]
 	mov ah, [color]
+	and ah, 0Fh ; 去背景色
 	mov [es:bx],ax
 	ret
 
@@ -185,7 +200,7 @@ DATA:
 	;elements
 	pos1 dw 0000h
 	vel1 dw 0101h
-	char1 db '*'
+	char1 db 'A'
 	color1 db 03H ;green 
 	
 	pos2 dw 1003h
