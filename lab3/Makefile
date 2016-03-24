@@ -1,16 +1,19 @@
 BUILD_DIR = build
 IMAGE_NAME=disk.img
-CC = gcc
-CFLAGS = -c -m16 -march=i386 -masm=intel -nostdlib -ffreestanding
+CC = g++
+CFLAGS = -Iinclude -c -m16 -march=i386 -masm=intel -nostdlib -ffreestanding -mpreferred-stack-boundary=2 -lgcc -shared
 OBJCOPY=objcopy
 
 AS = nasm
 ASFLAGS =
 LD = ld
-LDFLAGS = -m elf_i386
+LDFLAGS = -m elf_i386 -N
 
 QEMU = qemu-system-i386
 QEMUFLAGS = -fda
+
+BOCHS = bochs
+BOCHSFLAGS = -q -f bochsrc.bxrc
 
 all: clean build_dir write_image
 
@@ -32,12 +35,20 @@ kernel.bin: kernel.o os.o
 
 %.o: %.c
 	$(CC) $(CFLAGS) $< -o $(BUILD_DIR)/$@ 
+%.o: %.cpp
+	$(CC) $(CFLAGS) $< -o $(BUILD_DIR)/$@ 
 %.o: %.asm
 	$(AS) $(ASFLAGS) -f elf32 $^ -o $(BUILD_DIR)/$@
 %.com: %.o
 	$(LD) $(LDFLAGS) -Ttext 0x0100 $(BUILD_DIR)/$^ -o $(BUILD_DIR)/$@ 
 
-run:
+qemu:
 	$(QEMU) $(QEMUFLAGS) $(BUILD_DIR)/disk.img
+
+run: qemu
+
+bochs:
+	$(BOCHS) $(BOCHSFLAGS)
+
 clean:
 	-rm -rf build

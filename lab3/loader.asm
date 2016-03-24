@@ -1,3 +1,4 @@
+BITS 16
 org 7c00h
 OS_OFFSET equ 7e00h
 
