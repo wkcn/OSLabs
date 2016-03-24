@@ -3,8 +3,36 @@
 
 #include "defines.h"
 
+char getchar(){
+	// 获得一个按键（需等待）
+	char ch;
+	asm volatile("int 0x16;"
+			:"=a"(ch)
+			:"a"(0x1000)
+			);
+	return ch;
+}
+
+osi GetCursor(){
+	// H: row
+	// L  column
+	osi p;
+	asm volatile("int 0x10;"
+			:"=d"(p)
+			:"a"(0x0300),"b"(0)
+			);
+	return p;
+}
+
+void SetCursor(osi r, osi c){
+	asm volatile("int 0x10;"
+			:
+			:"a"(0x0200),"b"(0),"d"((r << 8) | c)
+			);
+}
+
 void CLS(){
-	/*
+ 	/*
 	AH = 06h to scroll up
        = 07h to scroll down
     AL = Number of lines to scroll (if zero, entire window is blanked)
@@ -14,11 +42,14 @@ void CLS(){
     DH = y coordinate, lower right corner of window
     DL = x coordinate, lower right corner of window 
 	*/
-	asm volatile("int 0x0010"
+	asm volatile("int 0x10"
 		:
 		:"a"(3)
 		);
-} 
+}  
+
+
+
 
 void DrawChar(char ch,osi r,osi c,osi color = 0x07){
 	osi k = (r * 80 + c) * 2;
@@ -33,10 +64,34 @@ void DrawChar(char ch,osi r,osi c,osi color = 0x07){
 			);
 }
 
-void DrawText(char *str,osi r,osi c,osi color = 0x07){
+void DrawText(const char *str,osi r,osi c,osi color = 0x07){
 	while(*str){
-		DrawChar(*str,r,c++);
-		str++;
+		DrawChar(*(str++),r,c++,color);
+	}
+}
+
+void PrintChar(char ch, osi color = 0x07){
+	//Use 10h interupt to get right cursor position
+	osi ocp = GetCursor();
+	osi orow = ocp >> 8;
+	osi ocol = ocp & 0x00FF;
+	asm volatile("int 0x10;"
+                :
+                : "a"(0x0E00 | ch), "b"(color)
+				);
+	if (ch != '\n' && ch != '\b' && ch != '\r'){
+		osi cp = GetCursor();
+		osi row = cp >> 8;
+		osi col = cp & 0x00FF;
+		DrawChar(ch,orow,ocol,color);
+		SetCursor(row,col);
+	}
+}
+
+void PrintStr(const char *str, osi color = 0x07){
+	while(*str){
+		PrintChar(*str,color);
+		++str;
 	}
 }
 
