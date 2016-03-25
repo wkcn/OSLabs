@@ -95,4 +95,23 @@ void PrintStr(const char *str, osi color = 0x07){
 	}
 }
 
+//Read FLOPPY
+void ReadDISK(osi secAddr, osi offset, osi driNum, osi headNum, osi cyl, osi start, osi len){
+	/*
+	asm volatile(
+			"push es;"
+			"mov es, ax;"
+			"mov ah,2;"
+			"mov al,%0;"
+			"pop es;"
+			:
+			:"r"(len),"a"(secAddr),"b"(offset),"c"((cyl << 8)|start),"d"((headNum << 8) | driNum)
+			);
+	*/
+}
+
+void ReadProgram(osi id){
+	//ReadDisk(0x8000,0x100,);
+}
+
 #endif

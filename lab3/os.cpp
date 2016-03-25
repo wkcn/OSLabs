@@ -4,6 +4,13 @@ asm("jmp 0:main");
 #include "io.h"
 const char *OS_INFO = "MiraiOS 0.1";
 const char *PROMPT_INFO = "wkcn > ";
+stream buf; // 命令流
+
+
+//extern void RunProg();
+void Execute(){
+	//RunProg();
+}
 
 int main(){ 
 	CLS();
@@ -14,17 +21,20 @@ int main(){
 		PrintStr(PROMPT_INFO,LCARM);
 		while(1){
 			char c = getchar();
-			if (c == '\r'){
+			 if (c == '\r'){
 				PrintStr(NEWLINE);
+				Execute();
 				break;
 			}else if (c == '\b'){
 				PrintChar('\b');
 				PrintChar(' ');
 				PrintChar('\b');
+				buf.pop();
 			}else {
 				PrintChar(c, WHITE);
-			}
-		}
-	}
+				buf.put(c);
+ 			}
+ 		}
+ 	} 
 	return 0;
-}
+} 

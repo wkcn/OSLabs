@@ -8,6 +8,23 @@
 
 const char *NEWLINE = "\r\n";
 
+struct stream{
+	char str[128];
+	int len;
+	void put(char ch){
+		str[len++] = ch;
+		str[len] = 0;
+	}
+	void pop(){
+		if (len > 0){
+			str[--len] = 0;
+		}
+	}
+	stream(){
+		len = 0;
+	}
+};
+
 //Font Color
 enum Color{
 	BLACK = 0x00,
