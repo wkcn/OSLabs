@@ -17,12 +17,14 @@ void Execute(){
 		RunProg(c - '0' + 10);
 	}
 }
+extern "C" void OK();
 
 int main(){ 
 	CLS();
 	DrawText(OS_INFO,0,0,LGREEN);
 	SetCursor(1,0);
 	//DrawText(PROMPT_INFO,3,0,WHITE);
+	OK();
 	while(1){
 		PrintStr(PROMPT_INFO,LCARM);
 		bufSize = 0; // clean buf

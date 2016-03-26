@@ -2,6 +2,7 @@ BITS 16
 [global _start]
 [extern main]
 [global RunProg]
+[global OK]
 
 UserProgramOffset equ 100h
 
@@ -24,9 +25,8 @@ UserProgramOffset equ 100h
 ;Init
 	mov ax,cs
 	mov ds,ax
-	;mov ss,ax
-
-	WriteIVT 08h,WKCNINTTimer2 ; Timer Interupt
+	
+	WriteIVT 08h,WKCNINTTimer ; Timer Interupt
 	WriteIVT 20h,WKCNINT20H
 	WriteIVT 21h,WKCNINT21H
 
@@ -34,9 +34,13 @@ UserProgramOffset equ 100h
 _start:
 	mov ax,cs
 	mov ds,ax
-	;mov ss,ax
-	;call SetTimer
+	mov ss,ax
+	call SetTimer
 	jmp main
+
+OK:
+	;WriteIVT 08h,WKCNINTTimer ; Timer Interupt
+	ret
 
 SetTimer:
 	mov al,34h
@@ -89,14 +93,12 @@ WKCNINTTimer2:
 RunProg:
 	;RunProg(dw sector)
 	mov bp, sp
-	mov ax, ss
-	mov es, ax
-	mov cx, [es:(bp + 2 + 2)]
+	mov cx, [ss:(bp + 2 + 2)]
 
 	;设置段地址
 	mov ax,0A00H
 	mov es,ax
-	;mov ss,ax
+	mov ss,ax
 
 	;用户程序地址偏移
 	mov bx,UserProgramOffset
@@ -124,21 +126,26 @@ RunProg:
 	mov [bx + _%1_OFFSET], ax
 %endmacro
 
+%macro LoadReg 1
+	mov ax, [bx + _%1_OFFSET]
+	mov %1, ax
+%endmacro
+
 WKCNINTTimer:
 	;Save current Progress
-	;System Stack: *\flags\cs\ip\call_ret
+	;System Stack: *\flags\cs\ip
 	push ds
-	;System Stack: *\flags\cs\ip\call_ret\ds(old)
+	;System Stack: *\flags\cs\ip\ds(old)
 	push cs
-	;System Stack: *\flags\cs\ip\call_ret\ds(old)\cs(kernel)
+	;System Stack: *\flags\cs\ip\ds(old)\cs(kernel)
 	pop ds
 	;ds = data segment(kernel)
-	;System Stack: *\flags\cs\ip\call_ret\ds(old)
-	mov [AX_SAVE], ax
-	mov [BX_SAVE], bx
-	mov [CX_SAVE], cx
-	mov [DX_SAVE], dx
-	mov ax, [RunID]
+	;System Stack: *\flags\cs\ip\ds(old)
+	mov [ds:AX_SAVE], ax
+	mov [ds:BX_SAVE], bx
+	mov [ds:CX_SAVE], cx
+	mov [ds:DX_SAVE], dx
+	mov ax, word[ds:RunID]
 	;Must have a progress, it is Shell :-)
 	;ES,DS,DI,SI,BP,SP,BX,DX,CX,AX,SS,IP,CS,FLAGS
 	mov bx,PCBSize
@@ -146,20 +153,68 @@ WKCNINTTimer:
 	add ax, Processes; current process PCB
 	mov bx,ax
 	SaveReg ES
-	SaveReg DS
 	SaveReg DI
 	SaveReg SI
 	SaveReg BP
+	pop word[bx + _DS_OFFSET]
+	;System Stack: *\flags\cs\ip\
+	pop word[bx + _IP_OFFSET]
+	pop word[bx + _CS_OFFSET]
+	pop word[bx + _FLAGS_OFFSET]
+	;System Stack: *
 	SaveReg SP
-	mov ax, [DX_SAVE]
+	mov ax, [ds:DX_SAVE]
 	mov [bx + _DX_OFFSET], ax
-	mov ax, [CX_SAVE]
+	mov ax, [ds:CX_SAVE]
 	mov [bx + _CX_OFFSET], ax
-	mov ax, [BX_SAVE]
+	mov ax, [ds:BX_SAVE]
 	mov [bx + _BX_OFFSET], ax
-
-	mov ax, [AX_SAVE]
+	mov ax, ss
+	mov [bx + _SS_OFFSET], ax
+	mov ax, [ds:AX_SAVE]
 	mov [bx + _AX_OFFSET], ax
+	;All Saved!
+	;Run Next Program!
+	inc word[RunID]
+	mov ax, [RunID]
+	mov bx, [RunNum]
+	cmp ax, bx
+	jb NOOVERRIDE
+	mov ax, 0
+	mov [RunID], ax
+	NOOVERRIDE:
+	;Restart RunID(ax)
+	;Must have a progress, it is Shell :-)
+	;ES,DS,DI,SI,BP,SP,BX,DX,CX,AX,SS,IP,CS,FLAGS
+	mov bx,PCBSize
+	mul bx
+	add ax, Processes; current process PCB
+	mov bx, ax
+	;Now DS is kernel DS
+	LoadReg SP
+	mov ax, [bx + _SS_OFFSET]
+	mov ss, ax
+	mov ax, [bx + _FLAGS_OFFSET]
+	push ax
+	mov ax, [bx + _CS_OFFSET]
+	push ax
+	mov ax, [bx + _IP_OFFSET]
+	push ax
+	LoadReg ES
+	LoadReg DI
+	LoadReg SI
+	LoadReg BP
+	mov cx, [bx + _CX_OFFSET]
+	mov dx, [bx + _DX_OFFSET]
+	mov ax, [bx + _DS_OFFSET]
+	push ax
+	mov ax, [bx + _BX_OFFSET]
+	push ax
+	;*/flags/cs/ip/ds/bx
+	mov ax, [bx + _AX_OFFSET]
+	pop bx
+	pop ds
+
 	iret
 
 	 
@@ -217,4 +272,3 @@ Processes:
 	_CS dw 0
 	_FLAGS dw 0
 FirstProcessEnd:
-	What dw 0
