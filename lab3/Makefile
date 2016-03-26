@@ -20,13 +20,14 @@ all: clean build_dir write_image
 build_dir:
 	-mkdir $(BUILD_DIR)
 
-write_image: loader.bin kernel.bin wkcn1.com
+write_image: loader.bin kernel.bin wkcn1.com wkcn2.com
 	dd if=/dev/zero of=$(BUILD_DIR)/$(IMAGE_NAME) bs=512 count=2880
 	dd if=$(BUILD_DIR)/loader.bin of=$(BUILD_DIR)/$(IMAGE_NAME) bs=512 count=1 conv=notrunc
 	dd if=$(BUILD_DIR)/kernel.bin of=$(BUILD_DIR)/$(IMAGE_NAME) bs=512 seek=2 conv=notrunc #Shanqu 3
 	printf "\x55\xaa" | dd of=$(BUILD_DIR)/$(IMAGE_NAME) bs=1 seek=510 count=2 conv=notrunc
 	#User Programs
 	dd if=$(BUILD_DIR)/wkcn1.com of=$(BUILD_DIR)/$(IMAGE_NAME) bs=512 seek=15 conv=notrunc #Shanqu 16
+	dd if=$(BUILD_DIR)/wkcn2.com of=$(BUILD_DIR)/$(IMAGE_NAME) bs=512 seek=16 conv=notrunc #Shanqu 17
 
 
 loader.bin: loader.asm

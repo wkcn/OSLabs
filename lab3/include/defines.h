@@ -8,12 +8,15 @@
 
 const char *NEWLINE = "\r\n";
 
+#define STREAM_MAX_LEN 16
 struct stream{
-	char str[128];
-	int len;
+	char str[STREAM_MAX_LEN];
+	uint16_t len;
 	void put(char ch){
-		str[len++] = ch;
-		str[len] = 0;
+		if (len+1 < STREAM_MAX_LEN){
+			str[len++] = ch;
+			str[len] = 0;
+		}
 	}
 	void pop(){
 		if (len > 0){

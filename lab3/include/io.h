@@ -79,6 +79,7 @@ void PrintChar(char ch, osi color = 0x07){
                 :
                 : "a"(0x0E00 | ch), "b"(color)
 				);
+	//color
 	if (ch != '\n' && ch != '\b' && ch != '\r'){
 		osi cp = GetCursor();
 		osi row = cp >> 8;
