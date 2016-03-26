@@ -26,8 +26,8 @@ write_image: loader.bin kernel.bin wkcn1.com wkcn2.com
 	dd if=$(BUILD_DIR)/kernel.bin of=$(BUILD_DIR)/$(IMAGE_NAME) bs=512 seek=2 conv=notrunc #Shanqu 3
 	printf "\x55\xaa" | dd of=$(BUILD_DIR)/$(IMAGE_NAME) bs=1 seek=510 count=2 conv=notrunc
 	#User Programs
-	dd if=$(BUILD_DIR)/wkcn1.com of=$(BUILD_DIR)/$(IMAGE_NAME) bs=512 seek=15 conv=notrunc #Shanqu 16
-	dd if=$(BUILD_DIR)/wkcn2.com of=$(BUILD_DIR)/$(IMAGE_NAME) bs=512 seek=16 conv=notrunc #Shanqu 17
+	dd if=$(BUILD_DIR)/wkcn1.com of=$(BUILD_DIR)/$(IMAGE_NAME) bs=512 seek=9 conv=notrunc #Shanqu 10
+	dd if=$(BUILD_DIR)/wkcn2.com of=$(BUILD_DIR)/$(IMAGE_NAME) bs=512 seek=10 conv=notrunc #Shanqu 11
 
 
 loader.bin: loader.asm

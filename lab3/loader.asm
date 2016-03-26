@@ -11,11 +11,11 @@ ReadOS:
 	;OS OFFSET
 	mov bx, OS_OFFSET
 	mov ah, 2 ; kind of function
-	mov al, 13 ; read num of shanqu
+	mov al, 8 ; read num of shanqu
 	mov dl, 0 ; floppy
 	mov dh, 0 ; citou
 	mov ch, 0 ; zhumian
-	mov cl, 3 ; qishi_shanqu
+	mov cl, 3 ; start_shanqu
 	int 13h
 
 JUMP_TO_OS:

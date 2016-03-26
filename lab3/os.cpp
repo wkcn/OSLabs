@@ -14,7 +14,7 @@ extern "C" void RunProg(osi);
 void Execute(){
 	char c = buf[0];
 	if (c >= '0' && c <= '9'){
-		RunProg(c - '0' + 16);
+		RunProg(c - '0' + 10);
 	}
 }
 
