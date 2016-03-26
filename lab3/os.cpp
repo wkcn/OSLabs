@@ -1,15 +1,15 @@
 asm(".code16gcc\n");
 asm("jmp 0:main");
 #include <stdint.h>
-#include "io.h"
+#include "include/io.h"
 const char *OS_INFO = "MiraiOS 0.1";
 const char *PROMPT_INFO = "wkcn > ";
 stream buf; // 命令流
 
 
-//extern void RunProg();
+extern "C" void RunProg();
 void Execute(){
-	//RunProg();
+	RunProg();
 }
 
 int main(){ 

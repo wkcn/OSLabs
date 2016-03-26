@@ -1,8 +1,9 @@
 BITS 16
 [global _start]
 [extern main]
+[global RunProg]
 
-[global _RunProg]
+
 UserProgramOffset equ 0A100h
 
 _start:
@@ -33,5 +34,6 @@ _start:
     jmp UserProgramOffset
 %endmacro
 
-_RunProg:
-	LoadProgram 1,0,0,0,2
+RunProg:
+	LoadProgram 1,0,0,0,16
+	o32 ret
