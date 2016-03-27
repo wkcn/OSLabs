@@ -12,6 +12,7 @@ osi bufSize = 0;
 
 extern "C" void RunProg(osi);
 void Execute(){
+	if (bufSize <= 0)return;
 	char c = buf[0];
 	if (c >= '0' && c <= '9'){
 		RunProg(c - '0' + 10);

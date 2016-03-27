@@ -26,6 +26,7 @@ cli
 ;Init
 	mov ax,cs
 	mov ds,ax
+	;call InitProgs
 
 	WriteIVT 08h,WKCNINTTimer ; Timer Interupt
 	WriteIVT 20h,WKCNINT20H
@@ -42,6 +43,17 @@ _start:
 OK:
 	;WriteIVT 08h,WKCNINTTimer ; Timer Interupt
 	ret
+
+;InitProgs:
+;	mov cx, 16
+;	IPLOOP:
+;		mov ax, Processes
+;		add ax, PCBSize
+;		mov es, ax
+;		mov ax, 0A00H
+;		;mov [es:
+;	loop LPLOOP
+;	ret
 
 SetTimer:
 	mov al,34h
@@ -103,7 +115,7 @@ RunProg:
 	mov bp, sp
 	mov cx, [ss:(bp + 2 + 2 + 2 * 6)]
 
-	mov cx, 11
+	;mov cx, 11
 
 	mov ax, 0	;切换到内核段
 	mov es, ax
@@ -113,7 +125,6 @@ RunProg:
 	add ax, 0A00H
 	
 
-	mov ax, 0A00H
 	;ax = segment addr
 	mov [es:AX_SAVE], ax; 保存段地址
 	;设置段地址
@@ -135,25 +146,25 @@ RunProg:
 	;开始计算PCB位置
 	mov ax, 0
 	mov es, ax
-	mov ax, [es:RunNum]
+	mov ax, word[es:RunNum]
 	mov bx, PCBSize
 	mul bx
 	add ax, Processes
 	mov bx, ax
 	;bx = new progress PCB
 	mov ax, [es:AX_SAVE]
-	mov es, bx
 	;ax = segment addr
-	mov ax, 0A00H
-	mov [es:_CS_OFFSET], ax
-	mov [es:_DS_OFFSET], ax
-	mov [es:_SS_OFFSET], ax
+
+
+	mov [bx + _CS_OFFSET], ax
+	mov [bx + _DS_OFFSET], ax
+	mov [bx + _SS_OFFSET], ax
 	mov ax, UserProgramOffset
-	mov [es:_IP_OFFSET], ax
+	mov [bx + _IP_OFFSET], ax
 	sub ax, 4
-	mov [es:_SP_OFFSET], ax
+	mov [bx + _SP_OFFSET], ax
 	mov ax, 512
-	mov [es:_FLAGS_OFFSET], ax
+	mov [bx + _FLAGS_OFFSET], ax
 
 	
 	mov ax, 0
@@ -167,13 +178,15 @@ RunProg:
 	pop es
 	pop bp
 
+
 	push ax
 	mov al, 20h
 	out 20h, al ;send EOI to +8529A
 	out 0A0h,al	;send EOI to -8529A
 	pop ax
-	
+
 	sti ; 恢复中断
+	
 	o32 ret
 
 ;单进程处理
@@ -261,6 +274,9 @@ WKCNINTTimer:
 	mov [bx + _SS_OFFSET], ax
 	mov ax, [ds:AX_SAVE]
 	mov [bx + _AX_OFFSET], ax
+	;已经保存过一次
+	mov ax, 1
+	mov [bx + _STATE_OFFSET], ax
 	;All Saved!
 	;Run Next Program!
 	inc word[ds:RunID]
@@ -363,21 +379,3 @@ Processes:
 	_CS dw 0
 	_FLAGS dw 512
 FirstProcessEnd:
-	_ID2 db 0
-	_STATE2 db 0
-	_NAME2 db "0123456789ABCDEF" ; 16 bytes
-	_ES2 dw 0
-	_DS2 dw 0A00H
-	_DI2 dw 0
-	_SI2 dw 0
-	_BP2 dw 0
-	_SP2 dw 100H-4
-	_BX2 dw 0
-	_DX2 dw 0
-	_CX2 dw 0
-	_AX2 dw 0
-	_SS2 dw 0A00H
-	_IP2 dw 100H
-	_CS2 dw 0A00H
-	_FLAGS2 dw 512
-
