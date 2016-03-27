@@ -5,7 +5,7 @@ BITS 16
 [global OK]
 
 UserProgramOffset equ 100h
-;cli
+cli
 
 ;写入中断向量表
 %macro WriteIVT 2
@@ -27,7 +27,7 @@ UserProgramOffset equ 100h
 	mov ax,cs
 	mov ds,ax
 
-	WriteIVT 08h,WKCNINTTimer2 ; Timer Interupt
+	WriteIVT 08h,WKCNINTTimer ; Timer Interupt
 	WriteIVT 20h,WKCNINT20H
 	WriteIVT 21h,WKCNINT21H
 
@@ -36,6 +36,7 @@ _start:
 	mov ax,cs
 	mov ds,ax
 	call SetTimer
+	sti
 	jmp main
 
 OK:
@@ -90,7 +91,7 @@ WKCNINTTimer2:
 	int 20h
 	iret
 
-RunProgNo:
+RunProg:
 	;RunProg(dw sector)
 	cli ; 屏蔽中断
 	push bp
@@ -101,7 +102,8 @@ RunProgNo:
 	push ax
 	mov bp, sp
 	mov cx, [ss:(bp + 2 + 2 + 2 * 6)]
-	mov cx, 10
+
+	mov cx, 11
 
 	mov ax, 0	;切换到内核段
 	mov es, ax
@@ -175,7 +177,7 @@ RunProgNo:
 	o32 ret
 
 ;单进程处理
-RunProg:
+RunProg2:
 	;RunProg(dw sector)
 	mov bp, sp
 	mov cx, [ss:(bp + 2 + 2)]
@@ -278,14 +280,14 @@ WKCNINTTimer:
 	mov bx, ax
 	;Now DS is kernel DS
 	LoadReg SP
-	mov ax, [bx + _SS_OFFSET]
+	mov ax, word[bx + _SS_OFFSET]
 	mov ss, ax
-	mov ax, [bx + _FLAGS_OFFSET]
+	mov ax, word[bx + _FLAGS_OFFSET]
 	push ax
-	mov ax, [bx + _CS_OFFSET]
+	mov ax, word[bx + _CS_OFFSET]
 	push ax
 	mov ax, word[bx + _IP_OFFSET]
-	;push ax
+	push ax
 	LoadReg ES
 	LoadReg DI
 	LoadReg SI
@@ -361,3 +363,21 @@ Processes:
 	_CS dw 0
 	_FLAGS dw 512
 FirstProcessEnd:
+	_ID2 db 0
+	_STATE2 db 0
+	_NAME2 db "0123456789ABCDEF" ; 16 bytes
+	_ES2 dw 0
+	_DS2 dw 0A00H
+	_DI2 dw 0
+	_SI2 dw 0
+	_BP2 dw 0
+	_SP2 dw 100H-4
+	_BX2 dw 0
+	_DX2 dw 0
+	_CX2 dw 0
+	_AX2 dw 0
+	_SS2 dw 0A00H
+	_IP2 dw 100H
+	_CS2 dw 0A00H
+	_FLAGS2 dw 512
+
