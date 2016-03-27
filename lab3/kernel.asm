@@ -379,3 +379,25 @@ Processes:
 	_CS dw 0
 	_FLAGS dw 512
 FirstProcessEnd:
+
+%macro PCB 1
+	_ID%1 db 0
+	_STATE%1 db 0
+	_NAME%1 db "0123456789ABCDEF" ; 16 bytes
+	_ES%1 dw 0
+	_DS%1 dw 0
+	_DI%1 dw 0
+	_SI%1 dw 0
+	_BP%1 dw 0
+	_SP%1 dw 0
+	_BX%1 dw 0
+	_DX%1 dw 0
+	_CX%1 dw 0
+	_AX%1 dw 0
+	_SS%1 dw 0
+	_IP%1 dw 0
+	_CS%1 dw 0
+	_FLAGS%1 dw 512
+%endmacro
+
+times PCBSize * 16 db 0

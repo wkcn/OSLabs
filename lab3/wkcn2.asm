@@ -5,8 +5,8 @@
 
 	;totalDelay = outDelay * inDelay
 	org 100H
-	outDelay equ 50000
-	inDelay equ 2000
+	outDelay equ 20000
+	inDelay equ 110
 
 	;80 x 25
 	SCREEN_X equ 80

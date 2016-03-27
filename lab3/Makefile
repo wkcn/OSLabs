@@ -20,7 +20,7 @@ all: clean build_dir write_image
 build_dir:
 	-mkdir $(BUILD_DIR)
 
-write_image: loader.bin kernel.bin wkcn1.com wkcn2.com
+write_image: loader.bin kernel.bin wkcn1.com wkcn2.com wkcn3.com wkcn4.com kan.com
 	dd if=/dev/zero of=$(BUILD_DIR)/$(IMAGE_NAME) bs=512 count=2880
 	dd if=$(BUILD_DIR)/loader.bin of=$(BUILD_DIR)/$(IMAGE_NAME) bs=512 count=1 conv=notrunc
 	dd if=$(BUILD_DIR)/kernel.bin of=$(BUILD_DIR)/$(IMAGE_NAME) bs=512 seek=2 conv=notrunc #Shanqu 3
@@ -28,6 +28,9 @@ write_image: loader.bin kernel.bin wkcn1.com wkcn2.com
 	#User Programs
 	dd if=$(BUILD_DIR)/wkcn1.com of=$(BUILD_DIR)/$(IMAGE_NAME) bs=512 seek=9 conv=notrunc #Shanqu 10
 	dd if=$(BUILD_DIR)/wkcn2.com of=$(BUILD_DIR)/$(IMAGE_NAME) bs=512 seek=10 conv=notrunc #Shanqu 11
+	dd if=$(BUILD_DIR)/wkcn3.com of=$(BUILD_DIR)/$(IMAGE_NAME) bs=512 seek=11 conv=notrunc #Shanqu 12
+	dd if=$(BUILD_DIR)/wkcn4.com of=$(BUILD_DIR)/$(IMAGE_NAME) bs=512 seek=12 conv=notrunc #Shanqu 13
+	dd if=$(BUILD_DIR)/kan.com of=$(BUILD_DIR)/$(IMAGE_NAME) bs=512 seek=13 conv=notrunc #Shanqu 14
 
 
 loader.bin: loader.asm

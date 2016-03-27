@@ -5,17 +5,17 @@
 
 	;totalDelay = outDelay * inDelay
 	org 100H
-	outDelay equ 20000
+	outDelay equ 18000
 	inDelay equ 100
 
 	;80 x 25
 	SCREEN_X equ 80
 	SCREEN_Y equ 25
 	;Ball in this Rect
-	MIN_X equ 40
-	MIN_Y equ 0
-	MAX_X equ 80
-	MAX_Y equ 13
+	MIN_X equ 0
+	MIN_Y equ 13
+	MAX_X equ 40
+	MAX_Y equ 25
 
 	;set data segment
 	;mov ax,07c0h
@@ -56,7 +56,7 @@ START:
 	;call PLAY
 	SINGLE pos1,vel1,char1,color1
 	SINGLE pos2,vel2,char2,color2
-	;SINGLE pos3,vel3,char3,color3
+	SINGLE pos3,vel3,char3,color3
 	call SHOWNAME
 	jmp START
 
@@ -169,7 +169,7 @@ ELIMINATE:
 
 
 DATA:
-	message db "WuKan's Program 1"
+	message db "WuKan's Program 3"
 	msgLen	dw $-message
 	msgColor db 00h
 
