@@ -23,9 +23,10 @@ UserProgramOffset equ 100h
 %endmacro
 
 ;Init
+	cli
 	mov ax,cs
 	mov ds,ax
-	
+
 	WriteIVT 08h,WKCNINTTimer ; Timer Interupt
 	WriteIVT 20h,WKCNINT20H
 	WriteIVT 21h,WKCNINT21H
@@ -34,7 +35,6 @@ UserProgramOffset equ 100h
 _start:
 	mov ax,cs
 	mov ds,ax
-	mov ss,ax
 	call SetTimer
 	jmp main
 
@@ -98,7 +98,6 @@ RunProg:
 	;设置段地址
 	mov ax,0A00H
 	mov es,ax
-	mov ss,ax
 
 	;用户程序地址偏移
 	mov bx,UserProgramOffset
@@ -156,8 +155,8 @@ WKCNINTTimer:
 	SaveReg DI
 	SaveReg SI
 	SaveReg BP
-	pop word[bx + _DS_OFFSET]
-	;System Stack: *\flags\cs\ip\
+	pop word[bx + _DS_OFFSET] ;System Stack: *\flags\cs\ip\
+	nop; 如果不加这句,会丢失下面一条pop语句,奇怪的bug!
 	pop word[bx + _IP_OFFSET]
 	pop word[bx + _CS_OFFSET]
 	pop word[bx + _FLAGS_OFFSET]
@@ -198,7 +197,7 @@ WKCNINTTimer:
 	push ax
 	mov ax, [bx + _CS_OFFSET]
 	push ax
-	mov ax, [bx + _IP_OFFSET]
+	mov ax, word[bx + _IP_OFFSET]
 	push ax
 	LoadReg ES
 	LoadReg DI
@@ -215,6 +214,10 @@ WKCNINTTimer:
 	pop bx
 	pop ds
 
+	mov al,20h
+	out 20h,al
+	out 0A0h,al
+	sti
 	iret
 
 	 
@@ -222,7 +225,7 @@ WKCNINTTimer:
 	;Get PCB
 
 %macro SetOffset 1
-	%1_OFFSET equ %1 - Processes
+	%1_OFFSET equ (%1 - Processes)
 %endmacro
 
 DATA:
