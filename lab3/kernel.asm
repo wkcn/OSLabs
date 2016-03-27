@@ -5,6 +5,7 @@ BITS 16
 [global OK]
 
 UserProgramOffset equ 100h
+;cli
 
 ;写入中断向量表
 %macro WriteIVT 2
@@ -23,11 +24,10 @@ UserProgramOffset equ 100h
 %endmacro
 
 ;Init
-	cli
 	mov ax,cs
 	mov ds,ax
 
-	WriteIVT 08h,WKCNINTTimer ; Timer Interupt
+	WriteIVT 08h,WKCNINTTimer2 ; Timer Interupt
 	WriteIVT 20h,WKCNINT20H
 	WriteIVT 21h,WKCNINT21H
 
@@ -90,6 +90,91 @@ WKCNINTTimer2:
 	int 20h
 	iret
 
+RunProgNo:
+	;RunProg(dw sector)
+	cli ; 屏蔽中断
+	push bp
+	push es
+	push dx
+	push cx
+	push bx
+	push ax
+	mov bp, sp
+	mov cx, [ss:(bp + 2 + 2 + 2 * 6)]
+	mov cx, 10
+
+	mov ax, 0	;切换到内核段
+	mov es, ax
+	mov ax, [es:RunNum]
+	mov bx, 1024 / 16
+	mul bx
+	add ax, 0A00H
+	
+
+	mov ax, 0A00H
+	;ax = segment addr
+	mov [es:AX_SAVE], ax; 保存段地址
+	;设置段地址
+	mov es, ax
+
+
+	;用户程序地址偏移
+	mov bx,UserProgramOffset
+	mov ah,2				  ;功能号
+	mov al,1				  ;扇区数
+    mov dl,0                 ;驱动器号 ; 软盘为0，硬盘和U盘为80H
+    mov dh,0                 ;磁头号 ; 起始编号为0
+    mov ch,0                 ;柱面号 ; 起始编号为0
+    int 13H ;	              调用读磁盘BIOS的13h功能
+
+	;清屏
+	;mov ax, 0003h
+	;int 10h
+	;开始计算PCB位置
+	mov ax, 0
+	mov es, ax
+	mov ax, [es:RunNum]
+	mov bx, PCBSize
+	mul bx
+	add ax, Processes
+	mov bx, ax
+	;bx = new progress PCB
+	mov ax, [es:AX_SAVE]
+	mov es, bx
+	;ax = segment addr
+	mov ax, 0A00H
+	mov [es:_CS_OFFSET], ax
+	mov [es:_DS_OFFSET], ax
+	mov [es:_SS_OFFSET], ax
+	mov ax, UserProgramOffset
+	mov [es:_IP_OFFSET], ax
+	sub ax, 4
+	mov [es:_SP_OFFSET], ax
+	mov ax, 512
+	mov [es:_FLAGS_OFFSET], ax
+
+	
+	mov ax, 0
+	mov es, ax
+	inc word[es:RunNum]
+
+	pop ax
+	pop bx 
+	pop cx
+	pop dx
+	pop es
+	pop bp
+
+	push ax
+	mov al, 20h
+	out 20h, al ;send EOI to +8529A
+	out 0A0h,al	;send EOI to -8529A
+	pop ax
+	
+	sti ; 恢复中断
+	o32 ret
+
+;单进程处理
 RunProg:
 	;RunProg(dw sector)
 	mov bp, sp
@@ -118,6 +203,7 @@ RunProg:
 	mov es,ax
 	push es
 	push UserProgramOffset
+
 	retf
 
 %macro SaveReg 1
@@ -131,6 +217,7 @@ RunProg:
 %endmacro
 
 WKCNINTTimer:
+	cli
 	;Save current Progress
 	;System Stack: *\flags\cs\ip
 	push ds
@@ -174,13 +261,13 @@ WKCNINTTimer:
 	mov [bx + _AX_OFFSET], ax
 	;All Saved!
 	;Run Next Program!
-	inc word[RunID]
-	mov ax, [RunID]
-	mov bx, [RunNum]
+	inc word[ds:RunID]
+	mov ax, [ds:RunID]
+	mov bx, [ds:RunNum]
 	cmp ax, bx
-	jb NOOVERRIDE
+	jb NOOVERRIDE ; < namely valid
 	mov ax, 0
-	mov [RunID], ax
+	mov [ds:RunID], ax
 	NOOVERRIDE:
 	;Restart RunID(ax)
 	;Must have a progress, it is Shell :-)
@@ -198,7 +285,7 @@ WKCNINTTimer:
 	mov ax, [bx + _CS_OFFSET]
 	push ax
 	mov ax, word[bx + _IP_OFFSET]
-	push ax
+	;push ax
 	LoadReg ES
 	LoadReg DI
 	LoadReg SI
@@ -233,7 +320,6 @@ DATA:
 	BX_SAVE dw 0
 	CX_SAVE dw 0
 	DX_SAVE dw 0
-	
 PCBCONST:
 	PCBSize equ FirstProcessEnd - Processes
 	SetOffset _ID
@@ -273,5 +359,5 @@ Processes:
 	_SS dw 0
 	_IP dw 0
 	_CS dw 0
-	_FLAGS dw 0
+	_FLAGS dw 512
 FirstProcessEnd:
