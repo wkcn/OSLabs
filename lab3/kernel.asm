@@ -6,7 +6,10 @@ BITS 16
 [global KillAll]
 [global ShellMode]
 [global GetKey]
+[global RunNum]
 
+PCB_SEGMENT equ 2000h
+PROG_SEGMENT equ 3000h
 UserProgramOffset equ 100h
 PROCESS_SIZE equ 1024 / 16 ; 以段计数
 cli
@@ -139,17 +142,11 @@ RunProg:
 	mov bp, sp
 	mov cx, [ss:(bp + 2 + 2 + 2 * 6)]
 
-	mov ax, 0	;切换到内核段
-	mov es, ax
-	mov bx, Processes + PCBSize; 跳过0号进程(系统进程)
-	mov ax, 0A00H
-	FIND_MEMORY_SPACE:
-		mov dx, [bx + _CS_OFFSET] ; 若数据段为空,则为可用内存	
-		cmp dx, 0
-		je CREATE_PROCESS
-		add bx, PCBSize
-		add ax, PROCESS_SIZE
-	jmp FIND_MEMORY_SPACE
+	mov ax, PROCESS_SIZE
+	mul cx
+	add ax, PROG_SEGMENT 
+
+
 	CREATE_PROCESS:
 
 	;ax = segment addr
@@ -225,31 +222,14 @@ KillAll:
 	;杀死所有进程, 除了Shell
 	cli
 	push es
-	push cx
-	push bx
 	push ax
-	;默认内核使用
 	mov ax, 0
 	mov es, ax
-	mov cx, [es:RunNum]
-	cmp cx, 1
-	je NOKILL
-	dec cx
-	mov bx, Processes
-	add bx, PCBSize
 	mov [es:RunID], ax
-	KillProgLoop:
-		mov [es:(bx + _CS_OFFSET)], ax
-		add bx, PCBSize	
-	loop KillProgLoop 
 	mov ax, 1
 	mov [es:RunNum], ax
-	NOKILL:
 	pop ax
-	pop bx
-	pop cx
 	pop es
-	sti
 	o32 ret
 
 KillProg:
@@ -531,5 +511,4 @@ FirstProcessEnd:
 	_CS%1 dw 0
 	_FLAGS%1 dw 512
 %endmacro
-
 times PCBSize * 16 db 0

@@ -15,7 +15,7 @@ osi par[16][2];
 extern "C" uint16_t GetKey();
 extern "C" void RunProg(osi);
 extern "C" void KillProg(osi);
-//extern "C" void KillAll();
+extern "C" void KillAll();
 extern "C" uint16_t ShellMode;
 
 __attribute__((regparm(2)))
@@ -47,6 +47,7 @@ __attribute__((regparm(1)))
 bool IsNum(osi i){
 	osi j = par[i][0];
 	osi k = par[i][1];
+	if (j >= k)return false;
 	for (;j<k;++j){
 		char c = buf[j];
 		if (c < '0' || c > '9')return false;
@@ -57,15 +58,49 @@ bool IsNum(osi i){
 void Execute(){  
 	if (bufSize <= 0)return;
 	buf[bufSize] = ' ';
-	if (buf[0] == 'r'){
+	//以空格为分隔符号,最多十六个参数
+	osi i,j;
+	i = 0; j = 0;
+	while (i < 16 && j < bufSize){
+		for (;buf[j] == ' ' && j < bufSize;++j);
+		par[i][0] = j;
+		for (;buf[j] != ' ' && j < bufSize;++j);
+		buf[j] = 0;
+		par[i][1] = j;
+		i++;
+	}
+	if (CommandMatch("uname")){
+		PrintInfo(OS_INFO,WHITE);
+	}else if (CommandMatch("cls")){
+		CLS();
+	}else if (CommandMatch("killall")){
+		KillAll();
+	}else if (CommandMatch("r")){
 		CLS();
 		ShellMode = 1;
-	}else
-	RunProg(buf[0] - '0' + 14);
+	}else if (CommandMatch("kill")){
+		for (osi k = 1;k < 16 && IsNum(k);++k){
+			KillProg(GetNum(k));
+		}
+	}else if (IsNum(0)){
+		for (osi k = 0;k < 16 && IsNum(k);++k){
+			osi y = GetNum(k);
+			if (y >= 0 && y <= 4)
+				RunProg(y + 14);
+		}
+	}
+	else{
+		PrintInfo("Command not found",RED);
+	}
+	bufSize = 0;
 }
 
 int main(){  
 	CLS();
+	//PrintNum(1);
+	//PrintNum(10);
+	//PrintNum(13);
+	//PrintNum(0);
 	DrawText(OS_INFO,0,0,LGREEN);
 	SetCursor(1,0);
 	//DrawText(PROMPT_INFO,3,0,WHITE);

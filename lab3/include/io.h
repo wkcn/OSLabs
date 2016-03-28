@@ -105,5 +105,28 @@ __attribute__((regparm(1)))
 void ReadProgram(osi id){
 	//ReadDisk(0x8000,0x100,);
 }
-
+/*
+__attribute__((regparm(1)))
+void PrintNum(uint16_t num){
+	char str[16] = {'0',0};
+	if (num == 0){
+		PrintStr(str);
+		return;
+	}
+	uint16_t temp[16];
+	osi i = 0;
+	while(num > 0){
+		temp[i] = num % 10;
+		num /= 10;
+		++i;
+	}
+	osi k = 0;
+	for (osi j = i - 1;i >= 0;--i){
+		str[k] = temp[j] - '0';
+		++k;
+	}
+	str[k] = 0;
+	PrintStr(str);
+}
+*/
 #endif
