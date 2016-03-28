@@ -11,11 +11,17 @@ osi bufSize = 0;
 
 
 extern "C" void RunProg(osi);
+extern "C" void KillProg(osi);
+
 void Execute(){
 	if (bufSize <= 0)return;
 	char c = buf[0];
 	if (c >= '0' && c <= '9'){
 		RunProg(c - '0' + 10);
+	}else{
+		if (c == 'k'){
+			KillProg(buf[2] - '0');
+		}
 	}
 }
 

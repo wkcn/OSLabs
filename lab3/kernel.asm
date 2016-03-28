@@ -2,6 +2,7 @@ BITS 16
 [global _start]
 [extern main]
 [global RunProg]
+[global KillProg]
 
 UserProgramOffset equ 100h
 PROCESS_SIZE equ 1024 / 16 ; 以段计数
@@ -86,8 +87,16 @@ WKCNINT20H:
 	iret
 
 WKCNINT21H:
-	call 0:CLEARSCREEN
-	jmp 0:_start
+	;返回Shell
+	;call 0:CLEARSCREEN
+	;jmp 0:_start
+	mov ax, 0
+	mov es, ax
+	mov ax, [es:RunID]
+	push 0
+	push _start
+	push ax
+	jmp 0:KillProg
 	iret
 
 WKCNINTTimer2:
@@ -111,14 +120,8 @@ RunProg:
 	mov bp, sp
 	mov cx, [ss:(bp + 2 + 2 + 2 * 6)]
 
-	;mov cx, 11
-
 	mov ax, 0	;切换到内核段
 	mov es, ax
-	;mov ax, [es:RunNum]
-	;mov bx, 1024 / 16
-	;mul bx
-	;add ax, 0A00H
 	mov bx, Processes + PCBSize; 跳过0号进程(系统进程)
 	mov ax, 0A00H
 	FIND_MEMORY_SPACE:
@@ -161,6 +164,7 @@ RunProg:
 	;ax = segment addr
 
 
+	;ds = 0
 	mov [bx + _CS_OFFSET], ax
 	mov [bx + _DS_OFFSET], ax
 	mov [bx + _SS_OFFSET], ax
@@ -170,6 +174,10 @@ RunProg:
 	mov [bx + _SP_OFFSET], ax
 	mov ax, 512
 	mov [bx + _FLAGS_OFFSET], ax
+	;分配进程ID
+	mov ax, [es:ProcessIDAssigner]
+	mov [bx + _ID_OFFSET], ax
+	inc word[es:ProcessIDAssigner]
 
 	
 	mov ax, 0
@@ -226,6 +234,85 @@ RunProg2:
 
 	retf
 
+KillProg:
+	;杀死进程KillProg(dw killid)
+	cli
+	push si
+	push di
+	push bp
+	push es
+	push dx
+	push cx
+	push bx
+	push ax
+
+	xor ax, ax; ax = 0
+	mov es, ax
+	mov bp, sp
+	mov ax, [ss:(bp + 2 + 2 + 2 * 8)]
+	cmp ax, 0
+	je UNVALID; 企图杀死0号进程,无效
+
+	;SI,DI
+	;mov bx, PCBSize
+	;mul bx
+	;mov si, ax
+	mov cx, Processes
+	add cx, PCBSize; 跳过0号进程
+	mov si, cx
+	mov cx, [RunNum]
+	; es = 0
+	FIND_PROCESS:
+		mov bx, [es:(si + _ID_OFFSET)]
+		cmp ax, bx
+		je FINDED_PROCESS
+		add si, PCBSize
+	loop FIND_PROCESS
+
+	jmp UNVALID; 没有找到进程
+	FINDED_PROCESS:
+	sub si, Processes
+	mov ax, [RunNum]
+	dec ax
+	mul bx
+	mov di, ax
+	;用D覆盖S
+
+	mov bx, Processes
+	mov cx, PCBSize
+
+	mov ax, [es:(bx + si + _CS_OFFSET)]
+	cmp ax, 0
+	je UNVALID; 无效进程号
+
+	COVER_MEM:
+		;byte
+		mov al, [es:(bx + di)]
+		mov [es:(bx + si)], al
+	loop COVER_MEM
+	mov ax, [RunNum]
+	dec ax
+	mov cx, PCBSize
+	mul cx
+	mov si, ax
+	mov ax, 0
+	;设置PCB_CS为0
+	mov [es:(bx + si + _CS_OFFSET)], ax
+	dec word[RunNum]
+
+	UNVALID:
+	pop ax
+	pop bx
+	pop cx
+	pop dx
+	pop es
+	pop bp
+	pop di
+	pop si
+	sti
+	o32 ret
+
+
 %macro SaveReg 1
 	mov ax, %1
 	mov [bx + _%1_OFFSET], ax
@@ -279,9 +366,6 @@ WKCNINTTimer:
 	mov [bx + _SS_OFFSET], ax
 	mov ax, [ds:AX_SAVE]
 	mov [bx + _AX_OFFSET], ax
-	;已经保存过一次
-	mov ax, 1
-	mov [bx + _STATE_OFFSET], ax
 	;All Saved!
 	;Run Next Program!
 	inc word[ds:RunID]
@@ -365,6 +449,7 @@ PCBCONST:
 ProcessesTable:
 	RunID dw 0 ; default to open shell
 	RunNum dw 1
+	ProcessIDAssigner dw 1;进程ID分配器
 Processes:
 	_ID db 0
 	_STATE db 0
