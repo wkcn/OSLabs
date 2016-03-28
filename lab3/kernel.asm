@@ -2,9 +2,9 @@ BITS 16
 [global _start]
 [extern main]
 [global RunProg]
-[global OK]
 
 UserProgramOffset equ 100h
+PROCESS_SIZE equ 1024 / 16 ; 以段计数
 cli
 
 ;写入中断向量表
@@ -40,10 +40,6 @@ _start:
 	sti
 	jmp main
 
-OK:
-	;WriteIVT 08h,WKCNINTTimer ; Timer Interupt
-	ret
-
 ;InitProgs:
 ;	mov cx, 16
 ;	IPLOOP:
@@ -58,7 +54,7 @@ OK:
 SetTimer:
 	mov al,34h
 	out 43h,al ; write control word
-	mov ax,1193182/20	;X times / seconds
+	mov ax,1193182/200	;X times / seconds
 	out 40h,al
 	mov al,ah
 	out 40h,al
@@ -119,11 +115,20 @@ RunProg:
 
 	mov ax, 0	;切换到内核段
 	mov es, ax
-	mov ax, [es:RunNum]
-	mov bx, 1024 / 16
-	mul bx
-	add ax, 0A00H
-	
+	;mov ax, [es:RunNum]
+	;mov bx, 1024 / 16
+	;mul bx
+	;add ax, 0A00H
+	mov bx, Processes + PCBSize; 跳过0号进程(系统进程)
+	mov ax, 0A00H
+	FIND_MEMORY_SPACE:
+		mov dx, [bx + _CS_OFFSET] ; 若数据段为空,则为可用内存	
+		cmp dx, 0
+		je CREATE_PROCESS
+		add bx, PCBSize
+		add ax, PROCESS_SIZE
+	jmp FIND_MEMORY_SPACE
+	CREATE_PROCESS:
 
 	;ax = segment addr
 	mov [es:AX_SAVE], ax; 保存段地址
