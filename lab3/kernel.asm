@@ -43,29 +43,15 @@ cli
 _start:
 	mov ax,cs
 	mov ds,ax
-	call SetTimer
-	sti
-	jmp main
-
-;InitProgs:
-;	mov cx, 16
-;	IPLOOP:
-;		mov ax, Processes
-;		add ax, PCBSize
-;		mov es, ax
-;		mov ax, 0A00H
-;		;mov [es:
-;	loop LPLOOP
-;	ret
-
-SetTimer:
+	;SetTimer
 	mov al,34h
 	out 43h,al ; write control word
 	mov ax,1193182/200	;X times / seconds
 	out 40h,al
 	mov al,ah
 	out 40h,al
-	ret
+	sti
+	jmp main
 
 CLEARSCREEN:
 	mov ax, 0003h
@@ -87,27 +73,6 @@ GetKey:
 
 	o32 ret
 
-
-WKCNINT20H:
-	;input ctrl+z, and quit
-	push ax
-	mov ah,01h
-	int 16h
-	jz  NOCZ	;没有按键
-	;按键了,获取字符
-	mov ah,00h
-	int 16h
-	cmp ax,2c1ah
-	jne NOCZ    ; 如果没有按Ctrl + Z, 跳转到NOCZ
-
-	pop ax	;to int 21h
-
-	int 21h
-
-	NOCZ:
-	pop ax	;to iret
-	iret
-
 WKCNINT21H:
 	;返回Shell
 	;call 0:CLEARSCREEN
@@ -119,15 +84,6 @@ WKCNINT21H:
 	push _start
 	push ax
 	jmp 0:KillProg
-	iret
-
-WKCNINTTimer2:
-	push ax
-	mov al, 20h
-	out 20h, al ;send EOI to +8529A
-	out 0A0h,al	;send EOI to -8529A
-	pop ax
-	int 20h
 	iret
 
 RunProg:
@@ -230,6 +186,7 @@ KillAll:
 	mov [es:RunNum], ax
 	pop ax
 	pop es
+	sti
 	o32 ret
 
 KillProg:
