@@ -3,6 +3,7 @@ BITS 16
 [extern main]
 [global RunProg]
 [global KillProg]
+[global KillAll]
 [global ShellMode]
 [global GetKey]
 
@@ -220,37 +221,36 @@ RunProg:
 	
 	o32 ret
 
-;单进程处理
-RunProg2:
-	;RunProg(dw sector)
-	mov bp, sp
-	mov cx, [ss:(bp + 2 + 2)]
-
-	;设置段地址
-	mov ax,0A00H
-	mov es,ax
-
-	;用户程序地址偏移
-	mov bx,UserProgramOffset
-	mov ah,2				  ;功能号
-	mov al,1				  ;扇区数
-    mov dl,0                 ;驱动器号 ; 软盘为0，硬盘和U盘为80H
-    mov dh,0                 ;磁头号 ; 起始编号为0
-    mov ch,0                 ;柱面号 ; 起始编号为0
-    int 13H ;	              调用读磁盘BIOS的13h功能
-
-	;清屏
-	mov ax, 0003h
-	int 10h
-	;执行用户程序
-
-	pop ax; short ip
-	mov ax,0A00H
-	mov es,ax
+KillAll:
+	;杀死所有进程, 除了Shell
+	cli
 	push es
-	push UserProgramOffset
-
-	retf
+	push cx
+	push bx
+	push ax
+	;默认内核使用
+	mov ax, 0
+	mov es, ax
+	mov cx, [es:RunNum]
+	cmp cx, 1
+	je NOKILL
+	dec cx
+	mov bx, Processes
+	add bx, PCBSize
+	mov [es:RunID], ax
+	KillProgLoop:
+		mov [es:(bx + _CS_OFFSET)], ax
+		add bx, PCBSize	
+	loop KillProgLoop 
+	mov ax, 1
+	mov [es:RunNum], ax
+	NOKILL:
+	pop ax
+	pop bx
+	pop cx
+	pop es
+	sti
+	o32 ret
 
 KillProg:
 	;杀死进程KillProg(dw killid)

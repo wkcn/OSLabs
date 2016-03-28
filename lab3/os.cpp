@@ -9,38 +9,73 @@ const char *PROMPT_INFO = "wkcn > ";
 const osi maxBufSize = 128;
 char buf[maxBufSize]; // 指令流
 osi bufSize = 0;
+osi par[16][2];
 
 
 extern "C" uint16_t GetKey();
 extern "C" void RunProg(osi);
 extern "C" void KillProg(osi);
+//extern "C" void KillAll();
 extern "C" uint16_t ShellMode;
 
-void Execute(){ 
-	if (bufSize <= 0)return;
-	char c = buf[0];
-	if (c >= '0'  && c <= '9'){
-		RunProg(c - '0' + 10);
-	}else{ 
-		if  (c == 'k'){
-			KillProg(buf[2] - '0');
-		}else if (c == 'r'){
-			CLS();
-			ShellMode = 1;
-		}
-	}
+__attribute__((regparm(2)))
+void PrintInfo(const char* str, uint16_t color){
+	PrintStr(PROMPT_INFO,LCARM);
+	PrintStr(str,color);
+	PrintStr(NEWLINE,color);
 }
 
-int main(){ 
+__attribute__((regparm(1)))
+bool CommandMatch(const char* str){
+	return (!strcmp(buf + par[0][0], str));
+}
+
+__attribute__((regparm(1)))
+osi GetNum(osi i){
+	//第一个参数 i = 1
+	osi j = par[i][0];
+	osi k = par[i][1];
+	osi res = 0;
+	for (;j<k;++j){
+		char c = buf[j];
+		res = res * 10 + c - '0';
+	}
+	return res;
+}
+
+__attribute__((regparm(1)))
+bool IsNum(osi i){
+	osi j = par[i][0];
+	osi k = par[i][1];
+	for (;j<k;++j){
+		char c = buf[j];
+		if (c < '0' || c > '9')return false;
+	}
+	return true;
+}
+
+void Execute(){  
+	if (bufSize <= 0)return;
+	buf[bufSize] = ' ';
+	if (buf[0] == 'r'){
+		CLS();
+		ShellMode = 1;
+	}else
+	RunProg(buf[0] - '0' + 14);
+}
+
+int main(){  
 	CLS();
 	DrawText(OS_INFO,0,0,LGREEN);
 	SetCursor(1,0);
 	//DrawText(PROMPT_INFO,3,0,WHITE);
 	while(1){
+		//Tab
+		uint16_t key = GetKey();
 		//ShellMode = 0时, 为Shell操作
 		if (ShellMode){
 			//ShellMode = 1时, 切换到程序执行
-			if (GetKey() == 0x2c1a){
+			if (key == 0x2c1a || key == 0x011b){
 				CLS();
 				ShellMode = 0;
 			}
@@ -62,12 +97,12 @@ int main(){
 					buf[--bufSize] = 0;
 				}
 			}else {
-				if (bufSize < maxBufSize){
+				if (bufSize < maxBufSize - 1){
 					PrintChar(c, WHITE);
 					buf[bufSize++] = c;
 				}
  			}
  		}
- 	} 
+ 	}  
 	return 0;
 } 

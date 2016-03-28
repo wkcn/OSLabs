@@ -24,6 +24,7 @@ osi GetCursor(){
 	return p;
 }
 
+__attribute__((regparm(2)))
 void SetCursor(osi r, osi c){
 	asm volatile("int 0x10;"
 			:
@@ -51,6 +52,7 @@ void CLS(){
 
 
 
+__attribute__((regparm(4)))
 void DrawChar(char ch,osi r,osi c,osi color = 0x07){
 	osi k = (r * 80 + c) * 2;
 	asm volatile(
@@ -64,12 +66,14 @@ void DrawChar(char ch,osi r,osi c,osi color = 0x07){
 			);
 }
 
+__attribute__((regparm(4)))
 void DrawText(const char *str,osi r,osi c,osi color = 0x07){
 	while(*str){
 		DrawChar(*(str++),r,c++,color);
 	}
 }
 
+__attribute__((regparm(2)))
 void PrintChar(char ch, osi color = 0x07){
 	//Use 10h interupt to get right cursor position
 	osi ocp = GetCursor();
@@ -89,6 +93,7 @@ void PrintChar(char ch, osi color = 0x07){
 	}
 }
 
+__attribute__((regparm(2)))
 void PrintStr(const char *str, osi color = 0x07){
 	while(*str){
 		PrintChar(*str,color);
@@ -96,21 +101,7 @@ void PrintStr(const char *str, osi color = 0x07){
 	}
 }
 
-//Read FLOPPY
-void ReadDISK(osi secAddr, osi offset, osi driNum, osi headNum, osi cyl, osi start, osi len){
-	/*
-	asm volatile(
-			"push es;"
-			"mov es, ax;"
-			"mov ah,2;"
-			"mov al,%0;"
-			"pop es;"
-			:
-			:"r"(len),"a"(secAddr),"b"(offset),"c"((cyl << 8)|start),"d"((headNum << 8) | driNum)
-			);
-	*/
-}
-
+__attribute__((regparm(1)))
 void ReadProgram(osi id){
 	//ReadDisk(0x8000,0x100,);
 }

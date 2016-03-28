@@ -1,24 +1,29 @@
 #ifndef _STRING_H_
 #define _STRING_H_
+
 #include "defines.h"
 
-osi strlen(char *s){
+__attribute__((regparm(1)))
+osi strlen(const char *s){
 	osi i = 0;
-	while(*s)i++;
+	while(*(s++))i++;
 	return i;
 }
 
-osi strcmp(char *astr, char *bstr){
+__attribute__((regparm(2)))
+osi strcmp(const char *astr,const char *bstr){
 	// = 0
 	// < -1
 	// > 1
-	while (*astr != 0 || *bstr != 0){
+	while ((*astr) && (*bstr)){
 		if (*astr != *bstr){
-			if (*astr < *bstr)return -1;
+			if (*astr < *bstr)return 1;
 			return 1;
 		}
+		++astr;
+		++bstr;
 	}
-	return 0;
+	return *astr - *bstr;
 }
 
 #endif

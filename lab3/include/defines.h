@@ -6,6 +6,7 @@
 #define SCREEN_WIDTH 80
 #define SCREEN_HEIGHT 25
 
+
 const char *NEWLINE = "\r\n";
 
 #define STREAM_MAX_LEN 16
