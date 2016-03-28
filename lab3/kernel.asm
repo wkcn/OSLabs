@@ -3,6 +3,8 @@ BITS 16
 [extern main]
 [global RunProg]
 [global KillProg]
+[global ShellMode]
+[global GetKey]
 
 UserProgramOffset equ 100h
 PROCESS_SIZE equ 1024 / 16 ; 以段计数
@@ -30,8 +32,8 @@ cli
 	;call InitProgs
 
 	WriteIVT 08h,WKCNINTTimer ; Timer Interupt
-	WriteIVT 20h,WKCNINT20H
-	WriteIVT 21h,WKCNINT21H
+	;WriteIVT 20h,WKCNINT20H
+	;WriteIVT 21h,WKCNINT21H
 
 
 _start:
@@ -65,6 +67,22 @@ CLEARSCREEN:
 	mov ax, 0003h
 	int 10h
 	iret
+
+GetKey:
+	
+	mov ah,01h
+	int 16h
+	jz  NOKEY	;没有按键
+	;按键了,获取字符
+	mov ah,00h
+	int 16h
+	jmp HAVEKEY
+	mov ax, 0
+	NOKEY:
+	HAVEKEY:
+
+	o32 ret
+
 
 WKCNINT20H:
 	;input ctrl+z, and quit
@@ -323,6 +341,7 @@ KillProg:
 	mov %1, ax
 %endmacro
 
+
 WKCNINTTimer:
 	cli
 	;Save current Progress
@@ -338,7 +357,13 @@ WKCNINTTimer:
 	mov [ds:BX_SAVE], bx
 	mov [ds:CX_SAVE], cx
 	mov [ds:DX_SAVE], dx
+
+	mov ax, word[ds:ShellMode]
+	cmp ax, 0
+	je ShellRunning
 	mov ax, word[ds:RunID]
+	ShellRunning:
+
 	;Must have a progress, it is Shell :-)
 	;ES,DS,DI,SI,BP,SP,BX,DX,CX,AX,SS,IP,CS,FLAGS
 	mov bx,PCBSize
@@ -368,13 +393,29 @@ WKCNINTTimer:
 	mov [bx + _AX_OFFSET], ax
 	;All Saved!
 	;Run Next Program!
+
+	;进程调度
+	;ax 是将要运行的进程id
+	;可用寄存器, ax,bx
+	mov ax, [ds:ShellMode]
+	cmp ax, 0
+	je UseShell
 	inc word[ds:RunID]
-	mov ax, [ds:RunID]
 	mov bx, [ds:RunNum]
+	cmp bx, 1; if eq, only shell but ShellMode = 1
+	jne NotOnlyShell
+	;只有Shell, 强制切换回Shell
+	mov ax, 0
+	mov [ds:ShellMode],ax
+	jmp UseShell
+	NotOnlyShell:
+	mov ax, [ds:RunID]
 	cmp ax, bx
 	jb NOOVERRIDE ; < namely valid
 	mov ax, 0
 	mov [ds:RunID], ax
+	UseShell:
+
 	NOOVERRIDE:
 	;Restart RunID(ax)
 	;Must have a progress, it is Shell :-)
@@ -450,6 +491,7 @@ ProcessesTable:
 	RunID dw 0 ; default to open shell
 	RunNum dw 1
 	ProcessIDAssigner dw 1;进程ID分配器
+	ShellMode dw 0
 Processes:
 	_ID db 0
 	_STATE db 0

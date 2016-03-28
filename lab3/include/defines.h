@@ -50,10 +50,5 @@ enum Color{
 
 typedef uint16_t osi; // default interger in OS
 
-osi strlen(char *s){
-	osi i = 0;
-	while(*s)i++;
-	return i;
-}
 
 #endif
