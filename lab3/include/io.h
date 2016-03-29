@@ -52,7 +52,7 @@ void CLS(){
 
 
 
-__attribute__((regparm(4)))
+__attribute__((regparm(3)))
 void DrawChar(char ch,osi r,osi c,osi color = 0x07){
 	osi k = (r * 80 + c) * 2;
 	asm volatile(
@@ -66,7 +66,7 @@ void DrawChar(char ch,osi r,osi c,osi color = 0x07){
 			);
 }
 
-__attribute__((regparm(4)))
+__attribute__((regparm(3)))
 void DrawText(const char *str,osi r,osi c,osi color = 0x07){
 	while(*str){
 		DrawChar(*(str++),r,c++,color);

@@ -1,5 +1,6 @@
 BITS 16
 org 7c00h
+OS_SEGMENT equ 0000h
 OS_OFFSET equ 7e00h
 
 Start:
@@ -9,6 +10,8 @@ Start:
 
 ReadOS:
 	;OS OFFSET
+	mov ax, OS_SEGMENT
+	mov es, ax
 	mov bx, OS_OFFSET
 	mov ah, 2 ; kind of function
 	mov al, 9 ; read num of shanqu
@@ -19,6 +22,9 @@ ReadOS:
 	int 13h
 
 JUMP_TO_OS:
+	;push word OS_SEGMENT
+	;push word OS_OFFSET
+	;retf
 	jmp 0:OS_OFFSET
 
 times 510 - ($ - $$) db 0

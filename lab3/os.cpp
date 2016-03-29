@@ -5,18 +5,28 @@ asm(".code16gcc\n");
 #include "include/string.h"
 const char *OS_INFO = "MiraiOS 0.1";
 const char *PROMPT_INFO = "wkcn > ";
+const char *HELP_INFO = "You can input a number to run a program(0~4), top, kill id, uname";
+const char *NOPROG_INFO = "No User Program is Running!";
 
 const osi maxBufSize = 128;
 char buf[maxBufSize]; // 指令流
 osi bufSize = 0;
 osi par[16][2];
+osi parSize = 0;
 
 
 extern "C" uint16_t GetKey();
 extern "C" void RunProg(osi);
 extern "C" void KillProg(osi);
-extern "C" void KillAll();
 extern "C" uint16_t ShellMode;
+extern "C" uint16_t RunID;
+extern "C" uint16_t RunNum;
+
+void KillAll(){
+	ShellMode = 0;
+	RunNum = 1;
+	RunID = 0;
+}
 
 __attribute__((regparm(2)))
 void PrintInfo(const char* str, uint16_t color){
@@ -67,27 +77,37 @@ void Execute(){
 		for (;buf[j] != ' ' && j < bufSize;++j);
 		buf[j] = 0;
 		par[i][1] = j;
+		if (par[i][1] <= par[i][0])break;
 		i++;
+		parSize = i;
 	}
 	if (CommandMatch("uname")){
 		PrintInfo(OS_INFO,WHITE);
+	}else if (CommandMatch("help")){
+		PrintInfo(HELP_INFO,WHITE);
 	}else if (CommandMatch("cls")){
 		CLS();
 	}else if (CommandMatch("killall")){
 		KillAll();
 	}else if (CommandMatch("r")){
-		CLS();
-		ShellMode = 1;
+		if(RunNum > 1){
+			ShellMode = 1;
+			CLS();
+		}else{
+			PrintInfo(NOPROG_INFO, RED);
+		}
 	}else if (CommandMatch("kill")){
-		for (osi k = 1;k < 16 && IsNum(k);++k){
+		for (osi k = 1;(k < parSize) && IsNum(k);++k){
 			KillProg(GetNum(k));
 		}
 	}else if (IsNum(0)){
-		for (osi k = 0;k < 16 && IsNum(k);++k){
+		for (osi k = 0;(k < parSize) && IsNum(k);++k){
 			osi y = GetNum(k);
 			if (y >= 0 && y <= 4)
 				RunProg(y + 14);
 		}
+		CLS();
+		ShellMode = 1;
 	}
 	else{
 		PrintInfo("Command not found",RED);
@@ -111,8 +131,8 @@ int main(){
 		if (ShellMode){
 			//ShellMode = 1时, 切换到程序执行
 			if (key == 0x2c1a || key == 0x011b){
-				CLS();
 				ShellMode = 0;
+				CLS();
 			}
 			continue;
 		}

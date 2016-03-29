@@ -3,9 +3,9 @@ BITS 16
 [extern main]
 [global RunProg]
 [global KillProg]
-[global KillAll]
 [global ShellMode]
 [global GetKey]
+[global RunID]
 [global RunNum]
 
 PCB_SEGMENT equ 2000h
@@ -74,16 +74,6 @@ GetKey:
 	o32 ret
 
 WKCNINT21H:
-	;返回Shell
-	;call 0:CLEARSCREEN
-	;jmp 0:_start
-	mov ax, 0
-	mov es, ax
-	mov ax, [es:RunID]
-	push 0
-	push _start
-	push ax
-	jmp 0:KillProg
 	iret
 
 RunProg:
@@ -124,7 +114,7 @@ RunProg:
 	;mov ax, 0003h
 	;int 10h
 	;开始计算PCB位置
-	mov ax, 0
+	mov ax, cs
 	mov es, ax
 	mov ax, word[es:RunNum]
 	mov bx, PCBSize
@@ -137,22 +127,22 @@ RunProg:
 
 
 	;ds = 0
-	mov [bx + _CS_OFFSET], ax
-	mov [bx + _DS_OFFSET], ax
-	mov [bx + _SS_OFFSET], ax
+	mov [es:(bx + _CS_OFFSET)], ax
+	mov [es:(bx + _DS_OFFSET)], ax
+	mov [es:(bx + _SS_OFFSET)], ax
 	mov ax, UserProgramOffset
-	mov [bx + _IP_OFFSET], ax
+	mov [es:(bx + _IP_OFFSET)], ax
 	sub ax, 4
-	mov [bx + _SP_OFFSET], ax
+	mov [es:(bx + _SP_OFFSET)], ax
 	mov ax, 512
-	mov [bx + _FLAGS_OFFSET], ax
+	mov [es:(bx + _FLAGS_OFFSET)], ax
 	;分配进程ID
 	mov ax, [es:ProcessIDAssigner]
-	mov [bx + _ID_OFFSET], ax
+	mov [es:(bx + _ID_OFFSET)], ax
 	inc word[es:ProcessIDAssigner]
 
 	
-	mov ax, 0
+	mov ax, cs
 	mov es, ax
 	inc word[es:RunNum]
 
@@ -173,100 +163,6 @@ RunProg:
 	sti ; 恢复中断
 	
 	o32 ret
-
-KillAll:
-	;杀死所有进程, 除了Shell
-	cli
-	push es
-	push ax
-	mov ax, 0
-	mov es, ax
-	mov [es:RunID], ax
-	mov ax, 1
-	mov [es:RunNum], ax
-	pop ax
-	pop es
-	sti
-	o32 ret
-
-KillProg:
-	;杀死进程KillProg(dw killid)
-	cli
-	push si
-	push di
-	push bp
-	push es
-	push dx
-	push cx
-	push bx
-	push ax
-
-	xor ax, ax; ax = 0
-	mov es, ax
-	mov bp, sp
-	mov ax, [ss:(bp + 2 + 2 + 2 * 8)]
-	cmp ax, 0
-	je UNVALID; 企图杀死0号进程,无效
-
-	;SI,DI
-	;mov bx, PCBSize
-	;mul bx
-	;mov si, ax
-	mov cx, Processes
-	add cx, PCBSize; 跳过0号进程
-	mov si, cx
-	mov cx, [RunNum]
-	; es = 0
-	FIND_PROCESS:
-		mov bx, [es:(si + _ID_OFFSET)]
-		cmp ax, bx
-		je FINDED_PROCESS
-		add si, PCBSize
-	loop FIND_PROCESS
-
-	jmp UNVALID; 没有找到进程
-	FINDED_PROCESS:
-	sub si, Processes
-	mov ax, [RunNum]
-	dec ax
-	mul bx
-	mov di, ax
-	;用D覆盖S
-
-	mov bx, Processes
-	mov cx, PCBSize
-
-	mov ax, [es:(bx + si + _CS_OFFSET)]
-	cmp ax, 0
-	je UNVALID; 无效进程号
-
-	COVER_MEM:
-		;byte
-		mov al, [es:(bx + di)]
-		mov [es:(bx + si)], al
-	loop COVER_MEM
-	mov ax, [RunNum]
-	dec ax
-	mov cx, PCBSize
-	mul cx
-	mov si, ax
-	mov ax, 0
-	;设置PCB_CS为0
-	mov [es:(bx + si + _CS_OFFSET)], ax
-	dec word[RunNum]
-
-	UNVALID:
-	pop ax
-	pop bx
-	pop cx
-	pop dx
-	pop es
-	pop bp
-	pop di
-	pop si
-	sti
-	o32 ret
-
 
 %macro SaveReg 1
 	mov ax, %1
@@ -299,6 +195,11 @@ WKCNINTTimer:
 	cmp ax, 0
 	je ShellRunning
 	mov ax, word[ds:RunID]
+	mov bx, word[ds:RunNum]
+	cmp ax, bx
+	jb VALIDID
+	mov ax, 0
+	VALIDID:
 	ShellRunning:
 
 	;Must have a progress, it is Shell :-)
@@ -392,9 +293,48 @@ WKCNINTTimer:
 	sti
 	iret
 
-	 
-
-	;Get PCB
+KillProg:
+	;KillProg(dw sector)
+	;Use si to cover di
+	cli
+	push es
+	push bp
+	push dx
+	push cx
+	push bx
+	push ax
+	mov bp, sp
+	mov ax, [ss:(bp + 2 + 2 + 2 * 6)]
+	mov bx, PCBSize
+	mul bx
+	mov di, ax
+	mov ax, 0
+	mov es, ax
+	dec word[es:RunNum]
+	mov ax, [es:RunNum]
+	mul bx 
+	mov si, ax
+	mov ax, Processes
+	mov es, ax
+	mov cx, PCBSize
+	COVERING:
+		mov al, [es:si]
+		mov [es:di], al
+	loop COVERING
+	add si, PCBSize + _CS_OFFSET
+	mov ax, 0
+	mov [es:si],ax ; set orics = 0
+	mov es, ax
+	mov [es:ShellMode], ax
+	mov [es:RunID], ax
+	pop ax
+	pop bx
+	pop cx
+	pop dx
+	pop bp
+	pop es
+	sti
+	o32 ret
 
 %macro SetOffset 1
 	%1_OFFSET equ (%1 - Processes)
@@ -429,6 +369,7 @@ ProcessesTable:
 	RunNum dw 1
 	ProcessIDAssigner dw 1;进程ID分配器
 	ShellMode dw 0
+
 Processes:
 	_ID db 0
 	_STATE db 0
