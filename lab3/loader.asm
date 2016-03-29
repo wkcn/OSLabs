@@ -14,7 +14,7 @@ ReadOS:
 	mov es, ax
 	mov bx, OS_OFFSET
 	mov ah, 2 ; kind of function
-	mov al, 9 ; read num of shanqu
+	mov al, 10 ; read num of shanqu
 	mov dl, 0 ; floppy
 	mov dh, 0 ; citou
 	mov ch, 0 ; zhumian

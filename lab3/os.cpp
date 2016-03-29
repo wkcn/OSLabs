@@ -5,14 +5,19 @@ asm(".code16gcc\n");
 #include "include/string.h"
 const char *OS_INFO = "MiraiOS 0.1";
 const char *PROMPT_INFO = "wkcn > ";
-const char *HELP_INFO = "You can input a number to run a program(0~4), top, kill id, uname";
+const char *HELP_INFO = "Input a 1~5 for parallel running. A stream nums for serial running";
 const char *NOPROG_INFO = "No User Program is Running!";
+const char *BATCH_INFO = "Batching Next Program: ";
+const char *LS_INFO = "Please Input These Number to Run a Program or more :-)\n\r1,2,3,4 - 45 angle fly char\n\r5 Draw my name";
 
 const osi maxBufSize = 128;
 char buf[maxBufSize]; // 指令流
 osi bufSize = 0;
 osi par[16][2];
 osi parSize = 0;
+osi batchList[5] = {5,1,2,3,4};
+osi batchID = 0;
+osi batchSize = 0;
 
 
 extern "C" uint16_t GetKey();
@@ -21,11 +26,13 @@ extern "C" void KillProg(osi);
 extern "C" uint16_t ShellMode;
 extern "C" uint16_t RunID;
 extern "C" uint16_t RunNum;
+extern "C" uint16_t _ID;
+uint16_t* P_PCB = &_ID;
 
 void KillAll(){
-	ShellMode = 0;
 	RunNum = 1;
 	RunID = 0;
+	ShellMode = 0;
 }
 
 __attribute__((regparm(2)))
@@ -65,17 +72,39 @@ bool IsNum(osi i){
 	return true;
 }
 
+void Top(){
+	for (osi i = 0;i < RunNum;++i){
+	}
+}
+
 void Execute(){  
 	if (bufSize <= 0)return;
+	batchSize = 0;
+	batchID = 0;
+	for (osi i = 0;i < bufSize && batchSize < 5;++i){
+		char c = buf[i];
+		osi y = c - '0';
+		if (y >= 1 && y <= 5){
+			batchList[batchSize++] = y;
+		}
+	}
+	if (batchSize == 1){
+		batchSize = 0;
+	}
+	if (batchSize >= 2){
+		return;
+	}
 	buf[bufSize] = ' ';
 	//以空格为分隔符号,最多十六个参数
 	osi i,j;
 	i = 0; j = 0;
 	while (i < 16 && j < bufSize){
-		for (;buf[j] == ' ' && j < bufSize;++j);
+		for (;buf[j] == ' ' && j < bufSize;++j){
+			buf[j] = 0;
+		}
 		par[i][0] = j;
 		for (;buf[j] != ' ' && j < bufSize;++j);
-		buf[j] = 0;
+		if (buf[j] == ' ')buf[j] = 0;
 		par[i][1] = j;
 		if (par[i][1] <= par[i][0])break;
 		i++;
@@ -85,6 +114,8 @@ void Execute(){
 		PrintInfo(OS_INFO,WHITE);
 	}else if (CommandMatch("help")){
 		PrintInfo(HELP_INFO,WHITE);
+	}else if (CommandMatch("ls")){
+		PrintInfo(LS_INFO,WHITE);
 	}else if (CommandMatch("cls")){
 		CLS();
 	}else if (CommandMatch("killall")){
@@ -101,18 +132,38 @@ void Execute(){
 			KillProg(GetNum(k));
 		}
 	}else if (IsNum(0)){
+		/*
 		for (osi k = 0;(k < parSize) && IsNum(k);++k){
 			osi y = GetNum(k);
-			if (y >= 0 && y <= 4)
-				RunProg(y + 14);
+			if (y >= 1 && y <= 5)
+				RunProg(y);
+		}*/
+		for (osi k = 0;k < parSize && buf[k];++k){
+			char c = buf[k];
+			osi y = c - '0';
+			if (y >= 1 && y <=5){
+				RunProg(y);
+			}
 		}
 		CLS();
 		ShellMode = 1;
-	}
-	else{
+	}else if (CommandMatch("top")){
+		Top();
+	}else{
 		PrintInfo("Command not found",RED);
 	}
 	bufSize = 0;
+}
+
+void sleep(){
+	osi temp = 0;
+	while(temp < 10000){
+		osi ut = 10000;
+		while (ut > 0){
+			--ut;
+		}
+		++temp;
+	}
 }
 
 int main(){  
@@ -133,9 +184,27 @@ int main(){
 			if (key == 0x2c1a || key == 0x011b){
 				ShellMode = 0;
 				CLS();
+				if (key == 0x2c1a)//Ctrl + Z
+				{
+					//KillProg(RunID);
+					KillAll();
+				}
 			}
 			continue;
 		}
+		//非Shell
+		//
+		if (batchSize > 0 && batchID < batchSize){
+			PrintStr(BATCH_INFO,YELLOW);
+			osi id = batchList[batchID++];
+			PrintChar(id + '0',YELLOW);
+			sleep();
+			CLS();
+			RunProg(id);
+			ShellMode = 1;
+			continue;
+		}
+
 		PrintStr(PROMPT_INFO,LCARM);
 		bufSize = 0; // clean buf
 		while(1){

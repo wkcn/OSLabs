@@ -108,25 +108,24 @@ void ReadProgram(osi id){
 /*
 __attribute__((regparm(1)))
 void PrintNum(uint16_t num){
-	char str[16] = {'0',0};
-	if (num == 0){
-		PrintStr(str);
-		return;
-	}
+	char sstr[16];
 	uint16_t temp[16];
 	osi i = 0;
-	while(num > 0){
+
+	do{
 		temp[i] = num % 10;
 		num /= 10;
 		++i;
-	}
+	}while(num > 0);
+
 	osi k = 0;
-	for (osi j = i - 1;i >= 0;--i){
-		str[k] = temp[j] - '0';
+	for (osi j = 3;j >= 0;--j){
+		sstr[k] = temp[j] + '0';
 		++k;
 	}
-	str[k] = 0;
-	PrintStr(str);
+	sstr[k] = 0;
+	return;
+	PrintStr(sstr);
 }
 */
 #endif

@@ -26,11 +26,11 @@ write_image: loader.bin kernel.bin wkcn1.com wkcn2.com wkcn3.com wkcn4.com kan.c
 	dd if=$(BUILD_DIR)/kernel.bin of=$(BUILD_DIR)/$(IMAGE_NAME) bs=512 seek=2 conv=notrunc #Shanqu 3
 	printf "\x55\xaa" | dd of=$(BUILD_DIR)/$(IMAGE_NAME) bs=1 seek=510 count=2 conv=notrunc
 	#User Programs
-	dd if=$(BUILD_DIR)/wkcn1.com of=$(BUILD_DIR)/$(IMAGE_NAME) bs=512 seek=13 conv=notrunc
-	dd if=$(BUILD_DIR)/wkcn2.com of=$(BUILD_DIR)/$(IMAGE_NAME) bs=512 seek=14 conv=notrunc
-	dd if=$(BUILD_DIR)/wkcn3.com of=$(BUILD_DIR)/$(IMAGE_NAME) bs=512 seek=15 conv=notrunc
-	dd if=$(BUILD_DIR)/wkcn4.com of=$(BUILD_DIR)/$(IMAGE_NAME) bs=512 seek=16 conv=notrunc
-	dd if=$(BUILD_DIR)/kan.com of=$(BUILD_DIR)/$(IMAGE_NAME) bs=512 seek=17 conv=notrunc
+	dd if=$(BUILD_DIR)/wkcn1.com of=$(BUILD_DIR)/$(IMAGE_NAME) bs=512 seek=18 conv=notrunc
+	dd if=$(BUILD_DIR)/wkcn2.com of=$(BUILD_DIR)/$(IMAGE_NAME) bs=512 seek=19 conv=notrunc
+	dd if=$(BUILD_DIR)/wkcn3.com of=$(BUILD_DIR)/$(IMAGE_NAME) bs=512 seek=20 conv=notrunc
+	dd if=$(BUILD_DIR)/wkcn4.com of=$(BUILD_DIR)/$(IMAGE_NAME) bs=512 seek=21 conv=notrunc
+	dd if=$(BUILD_DIR)/kan.com of=$(BUILD_DIR)/$(IMAGE_NAME) bs=512 seek=22 conv=notrunc
 
 
 loader.bin: loader.asm

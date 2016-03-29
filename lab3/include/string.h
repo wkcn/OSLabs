@@ -11,19 +11,19 @@ osi strlen(const char *s){
 }
 
 __attribute__((regparm(2)))
-osi strcmp(const char *astr,const char *bstr){
+int strcmp(const char *astr,const char *bstr){
 	// = 0
 	// < -1
 	// > 1
 	while ((*astr) && (*bstr)){
 		if (*astr != *bstr){
-			if (*astr < *bstr)return 1;
+			if (*astr < *bstr)return -1;
 			return 1;
 		}
 		++astr;
 		++bstr;
 	}
-	return *astr - *bstr;
+	return 0;
 }
 
 #endif

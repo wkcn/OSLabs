@@ -83,10 +83,14 @@ START:
 	mov cx,2
 	call LINE
 
-PROEND:
-	jmp PROEND
-
-	jmp $
+	call DELAY
+	call DELAY
+	call DELAY
+	call DELAY
+	call DELAY
+	mov ax,3
+	int 10h
+	jmp START
 
 LINE:
 	;cx is the len of line

@@ -7,12 +7,15 @@ BITS 16
 [global GetKey]
 [global RunID]
 [global RunNum]
+[global _ID]
 
-PCB_SEGMENT equ 2000h
-PROG_SEGMENT equ 3000h
+PCB_SEGMENT equ 1000h
+PROG_SEGMENT equ 0a00h
 UserProgramOffset equ 100h
-PROCESS_SIZE equ 1024 / 16 ; 以段计数
-cli
+PROCESS_SIZE equ 1024
+PROCESS_SEG_SIZE equ 1024 / 16 ; 以段计数
+MaxRunNum equ 5 ; 最大运行进程数
+UpdateTimes equ 20
 
 ;写入中断向量表
 %macro WriteIVT 2
@@ -33,8 +36,8 @@ cli
 ;Init
 	mov ax,cs
 	mov ds,ax
-	;call InitProgs
 
+	
 	WriteIVT 08h,WKCNINTTimer ; Timer Interupt
 	;WriteIVT 20h,WKCNINT20H
 	;WriteIVT 21h,WKCNINT21H
@@ -46,11 +49,10 @@ _start:
 	;SetTimer
 	mov al,34h
 	out 43h,al ; write control word
-	mov ax,1193182/200	;X times / seconds
+	mov ax,1193182/UpdateTimes	;X times / seconds
 	out 40h,al
 	mov al,ah
 	out 40h,al
-	sti
 	jmp main
 
 CLEARSCREEN:
@@ -77,23 +79,33 @@ WKCNINT21H:
 	iret
 
 RunProg:
+	cli
 	;RunProg(dw sector)
-	cli ; 屏蔽中断
 	push bp
 	push es
 	push dx
 	push cx
 	push bx
 	push ax
+
+	mov ax, cs
+	mov es, ax
+	mov ax, [es:RunNum]
+	mov bx, MaxRunNum
+	cmp ax, bx
+	;ax >= bx
+	jnb OverRunNum
+
+
 	mov bp, sp
 	mov cx, [ss:(bp + 2 + 2 + 2 * 6)]
 
-	mov ax, PROCESS_SIZE
-	mul cx
+	;注意, 程序的段分配
+	;主要是内存段不能重复,虽然代码段可重:-(
+	mov ax, PROCESS_SEG_SIZE
+	mov bx, [es:ProcessIDAssigner]
+	mul bx
 	add ax, PROG_SEGMENT 
-
-
-	CREATE_PROCESS:
 
 	;ax = segment addr
 	mov [es:AX_SAVE], ax; 保存段地址
@@ -106,9 +118,11 @@ RunProg:
 	mov ah,2				  ;功能号
 	mov al,1				  ;扇区数
     mov dl,0                 ;驱动器号 ; 软盘为0，硬盘和U盘为80H
-    mov dh,0                 ;磁头号 ; 起始编号为0
+    mov dh,1                 ;磁头号 ; 起始编号为0
     mov ch,0                 ;柱面号 ; 起始编号为0
-    int 13H ;	              调用读磁盘BIOS的13h功能
+	sti
+    int 13H					;调用读磁盘BIOS的13h功能
+	cli
 
 	;清屏
 	;mov ax, 0003h
@@ -126,7 +140,7 @@ RunProg:
 	;ax = segment addr
 
 
-	;ds = 0
+	;es = kernel segment
 	mov [es:(bx + _CS_OFFSET)], ax
 	mov [es:(bx + _DS_OFFSET)], ax
 	mov [es:(bx + _SS_OFFSET)], ax
@@ -141,10 +155,12 @@ RunProg:
 	mov [es:(bx + _ID_OFFSET)], ax
 	inc word[es:ProcessIDAssigner]
 
-	
-	mov ax, cs
-	mov es, ax
 	inc word[es:RunNum]
+
+	;push word[es:AX_SAVE]
+	;push 100h
+	;retf
+	OverRunNum:
 
 	pop ax
 	pop bx 
@@ -153,15 +169,7 @@ RunProg:
 	pop es
 	pop bp
 
-
-	push ax
-	mov al, 20h
-	out 20h, al ;send EOI to +8529A
-	out 0A0h,al	;send EOI to -8529A
-	pop ax
-
-	sti ; 恢复中断
-	
+	sti
 	o32 ret
 
 %macro SaveReg 1
@@ -238,20 +246,20 @@ WKCNINTTimer:
 	mov ax, [ds:ShellMode]
 	cmp ax, 0
 	je UseShell
-	inc word[ds:RunID]
 	mov bx, [ds:RunNum]
 	cmp bx, 1; if eq, only shell but ShellMode = 1
-	jne NotOnlyShell
+	ja NotOnlyShell ; bx > 1
 	;只有Shell, 强制切换回Shell
 	mov ax, 0
 	mov [ds:ShellMode],ax
 	jmp UseShell
 	NotOnlyShell:
+	inc word[ds:RunID]
 	mov ax, [ds:RunID]
 	cmp ax, bx
 	jb NOOVERRIDE ; < namely valid
 	mov ax, 0
-	mov [ds:RunID], ax
+	mov word[ds:RunID], ax
 	UseShell:
 
 	NOOVERRIDE:
@@ -287,16 +295,19 @@ WKCNINTTimer:
 	pop bx
 	pop ds
 
+	push ax
 	mov al,20h
 	out 20h,al
 	out 0A0h,al
+	pop ax
+
 	sti
 	iret
 
 KillProg:
+	cli
 	;KillProg(dw sector)
 	;Use si to cover di
-	cli
 	push es
 	push bp
 	push dx
@@ -307,23 +318,24 @@ KillProg:
 	mov ax, [ss:(bp + 2 + 2 + 2 * 6)]
 	mov bx, PCBSize
 	mul bx
-	mov di, ax
-	mov ax, 0
+	mov di, ax; Set DI
+	mov ax, cs; kernel
 	mov es, ax
 	dec word[es:RunNum]
 	mov ax, [es:RunNum]
 	mul bx 
-	mov si, ax
-	mov ax, Processes
-	mov es, ax
+	mov si, ax; Set SI
+	mov bx, Processes
 	mov cx, PCBSize
 	COVERING:
-		mov al, [es:si]
-		mov [es:di], al
+		mov al, [es:bx + si]
+		mov [es:bx + di], al
+		inc bx
 	loop COVERING
-	add si, PCBSize + _CS_OFFSET
+	mov bx, Processes
 	mov ax, 0
-	mov [es:si],ax ; set orics = 0
+	mov [es:bx + si + _CS_OFFSET],ax ; set orics = 0
+	mov ax, cs; kernel
 	mov es, ax
 	mov [es:ShellMode], ax
 	mov [es:RunID], ax
@@ -409,4 +421,4 @@ FirstProcessEnd:
 	_CS%1 dw 0
 	_FLAGS%1 dw 512
 %endmacro
-times PCBSize * 16 db 0
+times PCBSize * MaxRunNum db 0
