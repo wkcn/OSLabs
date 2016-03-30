@@ -23,7 +23,7 @@ int strcmp(const char *astr,const char *bstr){
 		++astr;
 		++bstr;
 	}
-	return 0;
+	return (*astr) - (*bstr);
 }
 
 #endif

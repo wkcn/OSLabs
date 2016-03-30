@@ -7,7 +7,6 @@ BITS 16
 [global GetKey]
 [global RunID]
 [global RunNum]
-[global _ID]
 
 PCB_SEGMENT equ 1000h
 PROG_SEGMENT equ 0a00h

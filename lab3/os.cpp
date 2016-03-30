@@ -5,10 +5,39 @@ asm(".code16gcc\n");
 #include "include/string.h"
 const char *OS_INFO = "MiraiOS 0.1";
 const char *PROMPT_INFO = "wkcn > ";
-const char *HELP_INFO = "Input a 1~5 for parallel running. A stream nums for serial running";
+const char *HELP_INFO = "\
+Input a 1~5 for parallel running. A stream nums for serial running \n\r\
+Commands:\n\r\
+r        Go to look user programs\n\r\
+ls       list all programs\n\r\
+cls      Clear Screen\n\r\
+top      View all running programs\n\r\
+kill     Kill a program, ex: kill 3\n\r\
+killall  Kill all Programs\n\r\
+uname    Show os info\n\r\
+Keys:\n\r\
+Esc      Back to Shell but not kill programs\n\r\
+Ctrl+Z   Back to Shell and kill all programs\n\r\
+";
 const char *NOPROG_INFO = "No User Program is Running!";
 const char *BATCH_INFO = "Batching Next Program: ";
 const char *LS_INFO = "Please Input These Number to Run a Program or more :-)\n\r1,2,3,4 - 45 angle fly char\n\r5 Draw my name";
+
+struct Prog{
+	char name[8];
+	osi space;
+	char pos[8];
+	char describe[32];
+};
+
+const osi progsNum = 5;
+Prog progs[progsNum] = {
+	{"1",512,"/","Quad 1 45-angle char"},
+	{"2",512,"/","Quad 2 45-angle char"},
+	{"3",512,"/","Quad 3 45-angle char"},
+	{"4",512,"/","Quad 4 45-angle char"},
+	{"5",512,"/","Print My Name"}
+};
 
 const osi maxBufSize = 128;
 char buf[maxBufSize]; // 指令流
@@ -26,8 +55,6 @@ extern "C" void KillProg(osi);
 extern "C" uint16_t ShellMode;
 extern "C" uint16_t RunID;
 extern "C" uint16_t RunNum;
-extern "C" uint16_t _ID;
-uint16_t* P_PCB = &_ID;
 
 void KillAll(){
 	RunNum = 1;
@@ -72,9 +99,29 @@ bool IsNum(osi i){
 	return true;
 }
 
-void Top(){
-	for (osi i = 0;i < RunNum;++i){
+void LS(){
+	//PrintInfo(LS_INFO,WHITE);
+	PrintStr("Name Size  Pos   Descrite",LBLUE);
+	PrintStr(NEWLINE,WHITE);
+	for (osi i = 0;i < progsNum;++i){
+		PrintStr(progs[i].name,WHITE);
+		PrintStr("    ",WHITE);
+		PrintNum(progs[i].space);
+		PrintStr("    ",WHITE);
+		PrintStr(progs[i].pos,WHITE);
+		PrintStr("    ",WHITE);
+		PrintStr(progs[i].describe,WHITE);
+		PrintStr(NEWLINE,WHITE);
 	}
+	
+}
+
+void Top(){
+	//Sorry, I have no time to finish viewing all programs pid :-(
+	//I will finish it in the future~
+	PrintNum(RunNum - 1,WHITE);
+	PrintStr(" User Progresses are running :-)",WHITE);
+	PrintStr(NEWLINE,WHITE);
 }
 
 void Execute(){  
@@ -113,9 +160,9 @@ void Execute(){
 	if (CommandMatch("uname")){
 		PrintInfo(OS_INFO,WHITE);
 	}else if (CommandMatch("help")){
-		PrintInfo(HELP_INFO,WHITE);
+		PrintStr(HELP_INFO,WHITE);
 	}else if (CommandMatch("ls")){
-		PrintInfo(LS_INFO,WHITE);
+		LS();
 	}else if (CommandMatch("cls")){
 		CLS();
 	}else if (CommandMatch("killall")){
@@ -173,9 +220,10 @@ int main(){
 	//PrintNum(13);
 	//PrintNum(0);
 	DrawText(OS_INFO,0,0,LGREEN);
-	SetCursor(1,0);
+	DrawText("You can input \'help\' to get more info",1,0,LGREEN);	
+	SetCursor(2,0);
 	//DrawText(PROMPT_INFO,3,0,WHITE);
-	while(1){
+	 while(1){
 		//Tab
 		uint16_t key = GetKey();
 		//ShellMode = 0时, 为Shell操作
