@@ -8,18 +8,18 @@ const char *PROMPT_INFO = "wkcn > ";
 const char *HELP_INFO = "\
 Input a 1~5 for parallel running. A stream nums for serial running \n\r\
 Commands:\n\r\
-r        Go to look user programs\n\r\
+r        Go to look user processes\n\r\
 ls       list all programs\n\r\
 cls      Clear Screen\n\r\
-top      View all running programs\n\r\
-kill     Kill a program, ex: kill 3\n\r\
-killall  Kill all Programs\n\r\
+top      View all running processes\n\r\
+kill     Kill a process, ex: kill 3\n\r\
+killall  Kill all Processes\n\r\
 uname    Show os info\n\r\
 Keys:\n\r\
-Esc      Back to Shell but not kill programs\n\r\
-Ctrl+Z   Back to Shell and kill all programs\n\r\
+Esc      Back to Shell but not kill processes\n\r\
+Ctrl+Z   Back to Shell and kill all processes\n\r\
 ";
-const char *NOPROG_INFO = "No User Program is Running!";
+const char *NOPROG_INFO = "No User Process is Running!";
 const char *BATCH_INFO = "Batching Next Program: ";
 const char *LS_INFO = "Please Input These Number to Run a Program or more :-)\n\r1,2,3,4 - 45 angle fly char\n\r5 Draw my name";
 
@@ -101,7 +101,7 @@ bool IsNum(osi i){
 
 void LS(){
 	//PrintInfo(LS_INFO,WHITE);
-	PrintStr("Name Size  Pos   Descrite",LBLUE);
+	PrintStr("Name Size  Pos   Description",LBLUE);
 	PrintStr(NEWLINE,WHITE);
 	for (osi i = 0;i < progsNum;++i){
 		PrintStr(progs[i].name,WHITE);
@@ -197,7 +197,7 @@ void Execute(){
 	}else if (CommandMatch("top")){
 		Top();
 	}else{
-		PrintInfo("Command not found",RED);
+		PrintInfo("Command not found, Input \'help\' to get more info",RED);
 	}
 	bufSize = 0;
 }
@@ -254,6 +254,7 @@ int main(){
 		}
 
 		PrintStr(PROMPT_INFO,LCARM);
+		buf[0] = 0;
 		bufSize = 0; // clean buf
 		while(1){
 			char c = getchar();
@@ -272,6 +273,7 @@ int main(){
 				if (bufSize < maxBufSize - 1){
 					PrintChar(c, WHITE);
 					buf[bufSize++] = c;
+					buf[bufSize] = 0;
 				}
  			}
  		}
