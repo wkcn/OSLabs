@@ -4,8 +4,8 @@
 
 	org 100H
 	;org 7c00h
-	outDelay equ 20000
-	inDelay equ 50
+	outDelay equ 40000
+	inDelay equ 500
 
 	;set data segment
 	mov ax,cs
