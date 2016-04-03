@@ -55,4 +55,7 @@ typedef char db;
 typedef short dw;
 typedef int dd;
 
+extern "C" uint16_t GetKey();
+extern "C" void memcpy(void *dest,const void *src,uint16_t n);
+
 #endif

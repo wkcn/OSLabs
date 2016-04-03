@@ -14,8 +14,8 @@ BaseOfStack		equ	100h	; 堆栈基地址(栈底, 从这个位置向低地址生�
 BaseOfStack		equ	7c00h	; 堆栈基地址(栈底, 从这个位置向低地址生长)
 %endif
 
-BaseOfkernal	equ	7e00h	; kernal.BIN 被加载到的位置 ----  段地址
-OffsetOfkernal	equ	100h	; kernal.BIN 被加载到的位置 ---- 偏移地址
+BaseOfkernal	equ	0000h	; kernal.BIN 被加载到的位置 ----  段地址
+OffsetOfkernal	equ	7e00h	; kernal.BIN 被加载到的位置 ---- 偏移地址
 RootDirSectors	equ	14		; 根目录占用的扇区数
 SectorNoOfRootDirectory	equ	19	; 根目录区的首扇区号
 SectorNoOfFAT1	equ	1		; FAT#1的首扇区号 = BPB_RsvdSecCnt

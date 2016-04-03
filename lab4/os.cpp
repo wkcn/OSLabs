@@ -25,22 +25,6 @@ const char *NOPROG_INFO = "No User Process is Running!";
 const char *BATCH_INFO = "Batching Next Program: ";
 const char *LS_INFO = "Please Input These Number to Run a Program or more :-)\n\r1,2,3,4 - 45 angle fly char\n\r5 Draw my name";
 
-struct Prog{
-	char name[8];
-	osi space;
-	char pos[8];
-	char describe[32];
-};
-
-const osi progsNum = 5;
-Prog progs[progsNum] = {
-	{"1",512,"/","Quad 1 45-angle char"},
-	{"2",512,"/","Quad 2 45-angle char"},
-	{"3",512,"/","Quad 3 45-angle char"},
-	{"4",512,"/","Quad 4 45-angle char"},
-	{"5",512,"/","Print My Name"}
-};
-
 const osi maxBufSize = 128;
 char buf[maxBufSize]; // 指令流
 osi bufSize = 0;
@@ -51,17 +35,20 @@ osi batchID = 0;
 osi batchSize = 0;
 
 
-extern "C" uint16_t GetKey();
-extern "C" void RunProg(osi);
-extern "C" void KillProg(osi);
 extern "C" uint16_t ShellMode;
 extern "C" uint16_t RunID;
 extern "C" uint16_t RunNum;
 
-void KillAll(){
-	RunNum = 1;
-	RunID = 0;
-	ShellMode = 0;
+__attribute__((regparm(1)))
+void RunProg(osi i){
+	char filename[12] = "WKCN1   COM";
+	filename[4] = i + '0';
+	char *addr;
+	addr = (char*)((0xa00 << 4) + 0x100);
+	LoadFile(filename,addr);
+	asm volatile(
+			"jmp 0xa00:0x100;"
+	);	
 }
 
 __attribute__((regparm(2)))
@@ -101,31 +88,6 @@ bool IsNum(osi i){
 	return true;
 }
 
-void LS(){
-	//PrintInfo(LS_INFO,WHITE);
-	PrintStr("Name Size  Pos   Description",LBLUE);
-	PrintStr(NEWLINE,WHITE);
-	for (osi i = 0;i < progsNum;++i){
-		PrintStr(progs[i].name,WHITE);
-		PrintStr("    ",WHITE);
-		PrintNum(progs[i].space);
-		PrintStr("    ",WHITE);
-		PrintStr(progs[i].pos,WHITE);
-		PrintStr("    ",WHITE);
-		PrintStr(progs[i].describe,WHITE);
-		PrintStr(NEWLINE,WHITE);
-	}
-	
-}
-
-void Top(){
-	//Sorry, I have no time to finish viewing all programs pid :-(
-	//I will finish it in the future~
-	PrintNum(RunNum - 1,WHITE);
-	PrintStr(" User Progresses are running :-)",WHITE);
-	PrintStr(NEWLINE,WHITE);
-}
-
 void Execute(){  
 	if (bufSize <= 0)return;
 	batchSize = 0;
@@ -163,12 +125,10 @@ void Execute(){
 		PrintInfo(OS_INFO,WHITE);
 	}else if (CommandMatch("help")){
 		PrintStr(HELP_INFO,WHITE);
-	}else if (CommandMatch("ls")){
-		LS();
 	}else if (CommandMatch("cls")){
 		CLS();
-	}else if (CommandMatch("killall")){
-		KillAll();
+	}else if (CommandMatch("ls")){
+		ls();
 	}else if (CommandMatch("r")){
 		if(RunNum > 1){
 			ShellMode = 1;
@@ -176,17 +136,7 @@ void Execute(){
 		}else{
 			PrintInfo(NOPROG_INFO, RED);
 		}
-	}else if (CommandMatch("kill")){
-		for (osi k = 1;(k < parSize) && IsNum(k);++k){
-			KillProg(GetNum(k));
-		}
 	}else if (IsNum(0)){
-		/*
-		for (osi k = 0;(k < parSize) && IsNum(k);++k){
-			osi y = GetNum(k);
-			if (y >= 1 && y <= 5)
-				RunProg(y);
-		}*/
 		for (osi k = 0;k < parSize && buf[k];++k){
 			char c = buf[k];
 			osi y = c - '0';
@@ -194,10 +144,8 @@ void Execute(){
 				RunProg(y);
 			}
 		}
-		CLS();
+		//CLS();
 		ShellMode = 1;
-	}else if (CommandMatch("top")){
-		Top();
 	}else{
 		PrintInfo("Command not found, Input \'help\' to get more info",RED);
 	}
@@ -220,12 +168,6 @@ int main(){
 	DrawText(OS_INFO,0,0,LGREEN);
 	DrawText("You can input \'help\' to get more info",1,0,LGREEN);	
 	SetCursor(2,0);
-
-	FAT12Header f;
-	ReadFloppy(0,1,(char*)&f);
-	PrintStrN(f.BS_FileSysType,8);
-
-	//DrawText(PROMPT_INFO,3,0,WHITE);
 	 while(1){
 		//Tab
 		uint16_t key = GetKey();
@@ -238,7 +180,6 @@ int main(){
 				if (key == 0x2c1a)//Ctrl + Z
 				{
 					//KillProg(RunID);
-					KillAll();
 				}
 			}
 			continue;
@@ -280,6 +221,6 @@ int main(){
 				}
  			}
  		}
- 	}  
+ 	 }  
 	return 0;
 } 

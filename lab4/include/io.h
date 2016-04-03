@@ -128,31 +128,26 @@ void PrintNum(osi num, osi color = WHITE){
 	}
 }
 
-__attribute__((regparm(1)))
-void ReadProgram(osi id){
-	//ReadDisk(0x8000,0x100,);
-}
-/*
-__attribute__((regparm(1)))
-void PrintNum(uint16_t num){
-	char sstr[16];
-	uint16_t temp[16];
-	osi i = 0;
+//class ostream{
+//public:
+//	osi color;
+//};
+struct ostream{
+	osi color;
+};
+ostream cout;
 
-	do{
-		temp[i] = num % 10;
-		num /= 10;
-		++i;
-	}while(num > 0);
-
-	osi k = 0;
-	for (osi j = 3;j >= 0;--j){
-		sstr[k] = temp[j] + '0';
-		++k;
-	}
-	sstr[k] = 0;
-	return;
-	PrintStr(sstr);
+#define endl "\n\r"
+__attribute__((regparm(2)))
+ostream& operator<<(ostream &os,int num){
+	PrintNum(num,os.color);
+	return os;
 }
-*/
+
+__attribute__((regparm(2)))
+ostream& operator<<(ostream &os,const char *str){
+	PrintStr(str,os.color);
+	return os;
+}
+
 #endif

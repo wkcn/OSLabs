@@ -2,7 +2,7 @@ BUILD_DIR = build
 DISK_DIR = disk
 IMAGE_NAME=disk.img
 CC = g++
-CFLAGS = -Iinclude -c -m16 -march=i386 -masm=intel -nostdlib -ffreestanding -mpreferred-stack-boundary=2 -lgcc -shared
+CFLAGS = -Iinclude -c -m16 -march=i386 -masm=intel -nostdlib -ffreestanding -mpreferred-stack-boundary=2 -lgcc -shared -std=c++11
 
 AS = nasm
 ASFLAGS =
@@ -32,13 +32,15 @@ write_knl: kernel.bin
 	cp $(BUILD_DIR)/kernel.bin $(DISK_DIR)/
 
 build_progs: wkcn1.com wkcn2.com wkcn3.com wkcn4.com kan.com
-	
+	for name in $^; do\
+		cp $(BUILD_DIR)/$$name $(DISK_DIR)/;\
+	done
 
 loadknl.bin: loadknl.asm
 	$(AS) $(ASFLAGS) -f bin $^ -o $(BUILD_DIR)/$@
 
 kernel.bin: kernel.o os.o
-	$(LD) $(LDFLAGS) -Ttext 0x100 --oformat binary $(BUILD_DIR)/kernel.o $(BUILD_DIR)/os.o -o $(BUILD_DIR)/$@
+	$(LD) $(LDFLAGS) -Ttext 0x7e00 --oformat binary $(BUILD_DIR)/kernel.o $(BUILD_DIR)/os.o -o $(BUILD_DIR)/$@
 
 
 %.o: %.c

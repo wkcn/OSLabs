@@ -2,6 +2,7 @@
 #define _DISK_H_
 
 #include "defines.h"
+#include "io.h"
 
 
 #pragma pack (1) // 按1字节对齐
@@ -32,8 +33,24 @@ struct FAT12Header{
 };
 
 
+#pragma pack (1) // 按1字节对齐
+struct Entry{
+	db DIR_Name[11];
+	db DIR_Attr;
+	db temp;
+	db ratio;
+	dw DIR_WrtTime;
+	dw DIR_WrtDate;
+	dw DIR_VISDate;
+	dw FAT32_HIGH;
+	dw LAST_WrtTime;
+	dw LAST_WrtDate;
+	dw DIR_FstClus;
+	dd DIR_FileSize;
+};
+
 __attribute__((regparm(3)))
-void ReadFloppy(uint16_t sectorID, uint8_t sectorNum, char *data){
+void ReadFloppy(uint16_t sectorID, uint8_t sectorNum, void *data){
 	const uint16_t SecPerTrk = 18;
 	//const uint16_t BytsPerSec = 512;
 	uint8_t y = sectorID / SecPerTrk;
@@ -56,6 +73,62 @@ void ReadFloppy(uint16_t sectorID, uint8_t sectorNum, char *data){
 			:
 			:"a"((ah<<8)|al),"b"(data),"c"((ch<<8)|cl),"d"((dh<<8)|dl)	
 			);
+}
+
+void ls(){
+	char buf[512];
+	Entry e; // 效率需要
+	for (int i = 19;i < 19 + 14;++i){
+		ReadFloppy(i,1,buf);
+		for (int j = 0;j < 512/32;++j){
+			memcpy(&e,buf + j * 32,32);
+			PrintStr(e.DIR_Name,11);
+			if(e.DIR_Name[1] != 0)cout << endl;
+		}
+	}
+}
+
+__attribute__((regparm(2)))
+bool LoadFile(char *filename, char *dest){
+	char buf[1024];
+	Entry e; // 效率需要
+	for (int i = 19;i < 19 + 14;++i){
+		ReadFloppy(i,1,buf);
+		for (int j = 0;j < 512/32;++j){
+			memcpy(&e,buf + j * 32,32);
+			bool can = true;
+			for (int k = 0;k < 11;++k){
+				if (filename[k] != e.DIR_Name[k]){
+					can = false;
+					break;
+				}
+			}
+			if (!can)continue;
+			//FOUND_ENTRY
+			int u = e.DIR_FstClus;
+			while (!(u >= 0xFF8)){
+				//int offset = 512 * 33 + (u - 2) * 512;
+				int y = 33 + (u - 2);
+				ReadFloppy(y,1,buf);
+				memcpy(dest,buf,512); // 这里按512覆盖, 不考虑不满512的情况
+				dest += 512;
+				//get fat
+				int t = u * 3 / 2;
+				int p = t / 512;
+				int o = t % 512;
+				ReadFloppy(1 + p,2,buf);	
+				dw w = (buf[o+1] << 8) | buf[o];
+				if (u % 2 == 0){
+					w &= 0xFFF;
+				}else{
+					w = (w >> 4) & 0xFFF;
+				}
+				u = w;
+			}
+			return true;
+		}
+	}
+	return false;
 }
 
 #endif
