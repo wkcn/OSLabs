@@ -26,6 +26,10 @@ const char *BATCH_INFO = "Batching Next Program: ";
 const char *LS_INFO = "Please Input These Number to Run a Program or more :-)\n\r1,2,3,4 - 45 angle fly char\n\r5 Draw my name";
 
 const osi maxBufSize = 128;
+#define PROCESS_SEG_SIZE 0x40
+#define PROG_SEGMENT 0xa00
+#define PCB_SIZE 31
+const osi MaxRunNum = 5;
 char buf[maxBufSize]; // 指令流
 osi bufSize = 0;
 osi par[16][2];
@@ -33,22 +37,27 @@ osi parSize = 0;
 osi batchList[5] = {5,1,2,3,4};
 osi batchID = 0;
 osi batchSize = 0;
+osi processIDAssigner = 1;
 
 
+extern "C" void WritePCB(uint16_t addr);
 extern "C" uint16_t ShellMode;
 extern "C" uint16_t RunID;
 extern "C" uint16_t RunNum;
 
+uint16_t PROG_SEGMENT_S = 0;
+
 __attribute__((regparm(1)))
 void RunProg(osi i){
+	if (RunNum >= MaxRunNum)return;
 	char filename[12] = "WKCN1   COM";
 	filename[4] = i + '0';
 	char *addr;
-	addr = (char*)((0xa00 << 4) + 0x100);
-	LoadFile(filename,addr);
-	asm volatile(
-			"jmp 0xa00:0x100;"
-	);	
+	addr = (char*)(((PROG_SEGMENT + PROG_SEGMENT_S) << 4) + 0x100); 
+	uint16_t addrseg = (PROG_SEGMENT + PROG_SEGMENT_S); 
+	PROG_SEGMENT_S += (LoadFile(filename,addr) >> 4);
+	CLS();
+	WritePCB(addrseg);
 }
 
 __attribute__((regparm(2)))

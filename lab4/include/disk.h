@@ -89,7 +89,7 @@ void ls(){
 }
 
 __attribute__((regparm(2)))
-bool LoadFile(char *filename, char *dest){
+int LoadFile(char *filename, char *dest){
 	char buf[1024];
 	Entry e; // 效率需要
 	for (int i = 19;i < 19 + 14;++i){
@@ -125,10 +125,10 @@ bool LoadFile(char *filename, char *dest){
 				}
 				u = w;
 			}
-			return true;
+			return e.DIR_FileSize;
 		}
 	}
-	return false;
+	return 0;
 }
 
 #endif

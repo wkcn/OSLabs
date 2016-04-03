@@ -2,7 +2,7 @@ BUILD_DIR = build
 DISK_DIR = disk
 IMAGE_NAME=disk.img
 CC = g++
-CFLAGS = -Iinclude -c -m16 -march=i386 -masm=intel -nostdlib -ffreestanding -mpreferred-stack-boundary=2 -lgcc -shared -std=c++11
+CFLAGS = -Iinclude -c -m16 -march=i386 -masm=intel -nostdlib -ffreestanding -mpreferred-stack-boundary=2 -lgcc -shared -std=c++11 -Wno-int-to-void-pointer-cast
 
 AS = nasm
 ASFLAGS =
