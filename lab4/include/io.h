@@ -101,6 +101,14 @@ void PrintStr(const char *str, osi color = 0x07){
 	}
 }
 
+__attribute__((regparm(3)))
+void PrintStrN(const char *str, osi len, osi color = 0x07){
+	for(osi i = 0;i < len;++i){
+		PrintChar(*str,color);
+		++str;
+	}
+}
+
 __attribute__((regparm(1)))
 void PrintNum(osi num, osi color = WHITE){
 	char temp[16];

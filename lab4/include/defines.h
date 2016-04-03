@@ -51,5 +51,8 @@ enum Color{
 
 typedef uint16_t osi; // default interger in OS
 
+typedef char db;
+typedef short dw;
+typedef int dd;
 
 #endif

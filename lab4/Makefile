@@ -17,6 +17,7 @@ BOCHS = bochs
 BOCHSFLAGS = -q -f bochsrc.bxrc
 
 all: clean build_dir write_image write_knl build_progs
+	umount disk/
 
 build_dir:
 	-mkdir $(BUILD_DIR)

@@ -3,6 +3,8 @@ asm(".code16gcc\n");
 #include <stdint.h>
 #include "include/io.h"
 #include "include/string.h"
+#include "include/disk.h"
+
 const char *OS_INFO = "MiraiOS 0.1";
 const char *PROMPT_INFO = "wkcn > ";
 const char *HELP_INFO = "\
@@ -215,13 +217,14 @@ void sleep(){
 
 int main(){  
 	CLS();
-	//PrintNum(1);
-	//PrintNum(10);
-	//PrintNum(13);
-	//PrintNum(0);
 	DrawText(OS_INFO,0,0,LGREEN);
 	DrawText("You can input \'help\' to get more info",1,0,LGREEN);	
 	SetCursor(2,0);
+
+	FAT12Header f;
+	ReadFloppy(0,1,(char*)&f);
+	PrintStrN(f.BS_FileSysType,8);
+
 	//DrawText(PROMPT_INFO,3,0,WHITE);
 	 while(1){
 		//Tab
