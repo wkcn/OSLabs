@@ -48,16 +48,32 @@ extern "C" uint16_t RunNum;
 uint16_t PROG_SEGMENT_S = 0;
 
 __attribute__((regparm(1)))
-void RunProg(osi i){
-	if (RunNum >= MaxRunNum)return;
-	char filename[12] = "WKCN1   COM";
-	filename[4] = i + '0';
+int RunProg(char *filename){
 	char *addr;
 	addr = (char*)(((PROG_SEGMENT + PROG_SEGMENT_S) << 4) + 0x100); 
 	uint16_t addrseg = (PROG_SEGMENT + PROG_SEGMENT_S); 
-	PROG_SEGMENT_S += (LoadFile(filename,addr) >> 4);
+	int si = LoadFile(filename,addr);
+	if (si == 0)return 0;
+	PROG_SEGMENT_S += (si >> 4);
 	CLS();
 	WritePCB(addrseg);
+	return si;
+}
+
+__attribute__((regparm(1)))
+int RunProg(osi i){
+	if (RunNum >= MaxRunNum)return 0;
+	char filename[12] = "WKCN1   COM";
+	filename[4] = i + '0';
+	return RunProg(filename);
+}
+
+
+void killall(){
+	CLS();
+	ShellMode = 0;
+	RunID = 0;
+	RunNum = 1;
 }
 
 __attribute__((regparm(2)))
@@ -145,6 +161,8 @@ void Execute(){
 		}else{
 			PrintInfo(NOPROG_INFO, RED);
 		}
+	}else if(CommandMatch("killall")){
+		killall();
 	}else if (IsNum(0)){
 		for (osi k = 0;k < parSize && buf[k];++k){
 			char c = buf[k];
@@ -156,7 +174,19 @@ void Execute(){
 		//CLS();
 		ShellMode = 1;
 	}else{
-		PrintInfo("Command not found, Input \'help\' to get more info",RED);
+		//Check File
+		char filename[12] = "        COM";
+		for (int i = 0;i < 11;++i){
+			char c = buf[i];
+			if (c == '.' || c == 0)break;
+			if (c >= 'a' && c <= 'z')c = c - 'a' + 'A';
+			filename[i] = c;
+		}
+		if(RunProg(filename)){
+			CLS();
+			ShellMode = 1;
+		}else 
+			PrintInfo("Command not found, Input \'help\' to get more info",RED);
 	}
 	bufSize = 0;
 }
@@ -189,6 +219,7 @@ int main(){
 				if (key == 0x2c1a)//Ctrl + Z
 				{
 					//KillProg(RunID);
+					killall();
 				}
 			}
 			continue;
