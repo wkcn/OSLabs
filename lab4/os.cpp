@@ -38,7 +38,6 @@ osi parSize = 0;
 osi batchList[5] = {5,1,2,3,4};
 osi batchID = 0;
 osi batchSize = 0;
-osi processIDAssigner = 1;
 
 
 extern "C" void WritePCB(uint16_t addr);
@@ -55,8 +54,24 @@ int RunProg(char *filename){
 	uint16_t addrseg = (PROG_SEGMENT + PROG_SEGMENT_S); 
 	int si = LoadFile(filename,addr);
 	if (si == 0)return 0;
-	PROG_SEGMENT_S += (si >> 4);
-	cls();
+	PROG_SEGMENT_S += ((si + (1<<4)-1) >> 4);
+
+	//借用20H INT位置!
+	asm volatile(
+			"push es;"
+			"push si;"
+			"push ax;"
+			"mov ax, 0x00;"
+			"mov es, ax;"
+			"mov ax, 0x7c00;"
+			"mov si, ax;"
+			"mov ax, 0;"
+			"mov es:[si],ax;"
+			"pop ax;"
+			"pop si;"
+			"pop es;"
+			);
+
 	WritePCB(addrseg);
 	return si;
 }
@@ -66,6 +81,7 @@ int RunProg(osi i){
 	if (RunNum >= MaxRunNum)return 0;
 	char filename[12] = "WKCN1   COM";
 	filename[4] = i + '0';
+	cls();
 	return RunProg(filename);
 }
 
@@ -78,7 +94,6 @@ void top(){
 }
 
 void killall(){
-	cls();
 	ShellMode = 0;
 	RunID = 0;
 	RunNum = 1;
@@ -193,7 +208,6 @@ void Execute(){
 			filename[i] = c;
 		}
 		if(RunProg(filename)){
-			cls();
 			ShellMode = 1;
 		}else 
 			PrintInfo("Command not found, Input \'help\' to get more info",RED);
@@ -201,15 +215,32 @@ void Execute(){
 	bufSize = 0;
 }
 
-void sleep(){
+void sleep(){ 
 	osi temp = 0;
-	while(temp < 10000){
+	while(temp  < 10000){
 		osi ut = 10000;
-		while (ut > 0){
+		while ( ut > 0){
 			--ut;
 		}
 		++temp;
 	}
+}
+
+bool NeedRetnShell(){
+	uint8_t a;
+	asm volatile(
+			"push si;"
+			"push es;"
+			"mov ax, 0x00;"
+			"mov es, ax;"
+			"mov ax, 0x7c00;"
+			"mov si, ax;"
+			"mov ax, es:[si];"
+			"pop es;"
+			"pop si;"
+			:"=a"(a)
+			);
+	return (a && ShellMode);
 }
 
 int main(){  
@@ -231,6 +262,9 @@ int main(){
 					killall();
 				}
 				cls();
+			}
+			if (NeedRetnShell()){
+				killall();
 			}
 			continue;
 		}

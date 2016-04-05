@@ -6,7 +6,7 @@ BITS 16
 [global GetKey]
 [global RunID]
 [global RunNum]
-[global _ID]
+[global KillProg]
 [global WritePCB]
 
 PCB_SEGMENT equ 1000h
@@ -43,7 +43,7 @@ MaxRunNum equ 5
 
 	
 	WriteIVT 08h,WKCNINTTimer ; Timer Interupt
-	;WriteIVT 20h,WKCNINT20H
+	WriteIVT 20h,WKCNINT20H
 	;WriteIVT 21h,WKCNINT21H
 
 
@@ -119,6 +119,67 @@ memcpy:
 	mov ax, [bx + _%1_OFFSET]
 	mov %1, ax
 %endmacro
+
+KillProg:
+	cli
+	;KillProg(dw runid)
+	;runid must be not 0 !
+	;Use si to cover di
+	push es
+	push bp
+	push dx
+	push cx
+	push bx
+	push ax
+	mov bp, sp
+	mov ax, [ss:(bp + 2 + 2 + 2 * 6)]
+	mov bx, PCBSize
+	mul bx
+	mov di, ax; Set DI
+	mov ax, cs; kernel
+	mov es, ax
+	dec word[es:RunNum]
+	mov ax, [es:RunNum]
+	mul bx 
+	mov si, ax; Set SI
+	mov bx, Processes
+	mov cx, PCBSize
+	COVERING:
+		mov al, [es:bx + si]
+		mov [es:bx + di], al
+		inc bx
+	loop COVERING
+	mov bx, Processes
+	mov ax, 0
+	mov [es:bx + si + _CS_OFFSET],ax ; set orics = 0
+	mov ax, cs; kernel
+	mov es, ax
+	mov ax, 0
+	mov [es:ShellMode], ax
+	mov [es:RunID], ax
+	pop ax
+	pop bx
+	pop cx
+	pop dx
+	pop bp
+	pop es
+	sti
+	o32 ret
+
+WKCNINT20H:
+	;程序中止
+	push ds
+	push ax
+	mov ax, cs
+	mov ds, ax
+	;push word[RunID]
+	;call KillProg
+	mov ax, 0
+	mov [ShellMode], ax
+	mov [RunID], ax
+	pop ax
+	pop ds
+	iret
 
 
 WKCNINTTimer:

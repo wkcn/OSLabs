@@ -1,5 +1,6 @@
 BUILD_DIR = build
 DISK_DIR = disk
+KITS_DIR = kits
 IMAGE_NAME=disk.img
 CC = g++
 CFLAGS = -Iinclude -c -m16 -march=i386 -masm=intel -nostdlib -ffreestanding -mpreferred-stack-boundary=2 -lgcc -shared -std=c++11 -Wno-int-to-void-pointer-cast
@@ -31,7 +32,7 @@ write_image: loadknl.bin
 write_knl: kernel.bin
 	cp $(BUILD_DIR)/kernel.bin $(DISK_DIR)/
 
-build_progs: wkcn1.com wkcn2.com wkcn3.com wkcn4.com kan.com
+build_progs: wkcn1.com wkcn2.com wkcn3.com wkcn4.com kan.com hello.com
 	for name in $^; do\
 		cp $(BUILD_DIR)/$$name $(DISK_DIR)/;\
 	done
@@ -49,6 +50,8 @@ kernel.bin: kernel.o os.o
 	$(CC) $(CFLAGS) $< -o $(BUILD_DIR)/$@ 
 %.o: %.asm
 	$(AS) $(ASFLAGS) -f elf32 $^ -o $(BUILD_DIR)/$@
+%.com: %.o header.o
+	$(LD) $(LDFLAGS) -Ttext 0x100 --oformat binary $(BUILD_DIR)/header.o $(BUILD_DIR)/$< -o $(BUILD_DIR)/$@
 %.com: %.asm
 	$(AS) $(ASFLAGS) -f bin $^ -o $(BUILD_DIR)/$@
 	#$(LD) $(LDFLAGS) -Ttext 0x0100 $(BUILD_DIR)/$^ -o $(DISK_DIR)/$@ 

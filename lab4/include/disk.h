@@ -105,7 +105,7 @@ int LoadFile(char *filename, char *dest){
 			}
 			if (!can)continue;
 			//FOUND_ENTRY
-			int u = e.DIR_FstClus;
+			uint16_t u = e.DIR_FstClus;
 			while (!(u >= 0xFF8)){
 				//int offset = 512 * 33 + (u - 2) * 512;
 				int y = 33 + (u - 2);
@@ -117,7 +117,9 @@ int LoadFile(char *filename, char *dest){
 				int p = t / 512;
 				int o = t % 512;
 				ReadFloppy(1 + p,2,buf);	
-				dw w = (buf[o+1] << 8) | buf[o];
+				//uint16_t w = ((buf[o+1]&0xFF) << 8) | (buf[o]&0xFF);
+				//注意位扩展:-(
+				uint16_t w = *(uint16_t*)(buf + o);
 				if (u % 2 == 0){
 					w &= 0xFFF;
 				}else{
