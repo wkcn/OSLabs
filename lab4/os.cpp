@@ -4,6 +4,7 @@ asm(".code16gcc\n");
 #include "include/io.h"
 #include "include/string.h"
 #include "include/disk.h"
+#include "include/keyboard.h"
 
 const char *OS_INFO = "MiraiOS 0.1";
 const char *PROMPT_INFO = "wkcn > ";
@@ -55,7 +56,7 @@ int RunProg(char *filename){
 	int si = LoadFile(filename,addr);
 	if (si == 0)return 0;
 	PROG_SEGMENT_S += (si >> 4);
-	CLS();
+	cls();
 	WritePCB(addrseg);
 	return si;
 }
@@ -68,9 +69,16 @@ int RunProg(osi i){
 	return RunProg(filename);
 }
 
+void top(){
+	//Sorry, I have no time to finish viewing all programs pid :-(
+	//I will finish it in the future~
+	PrintNum(RunNum - 1,WHITE);
+	PrintStr(" User Progresses are running :-)",WHITE);
+	PrintStr(NEWLINE,WHITE);
+}
 
 void killall(){
-	CLS();
+	cls();
 	ShellMode = 0;
 	RunID = 0;
 	RunNum = 1;
@@ -150,14 +158,16 @@ void Execute(){
 		PrintInfo(OS_INFO,WHITE);
 	}else if (CommandMatch("help")){
 		PrintStr(HELP_INFO,WHITE);
+	}else if (CommandMatch("top")){
+		top();
 	}else if (CommandMatch("cls")){
-		CLS();
+		cls();
 	}else if (CommandMatch("ls")){
 		ls();
 	}else if (CommandMatch("r")){
 		if(RunNum > 1){
 			ShellMode = 1;
-			CLS();
+			cls();
 		}else{
 			PrintInfo(NOPROG_INFO, RED);
 		}
@@ -183,7 +193,7 @@ void Execute(){
 			filename[i] = c;
 		}
 		if(RunProg(filename)){
-			CLS();
+			cls();
 			ShellMode = 1;
 		}else 
 			PrintInfo("Command not found, Input \'help\' to get more info",RED);
@@ -203,7 +213,7 @@ void sleep(){
 }
 
 int main(){  
-	CLS();
+	cls();
 	DrawText(OS_INFO,0,0,LGREEN);
 	DrawText("You can input \'help\' to get more info",1,0,LGREEN);	
 	SetCursor(2,0);
@@ -213,14 +223,14 @@ int main(){
 		//ShellMode = 0时, 为Shell操作
 		if (ShellMode){
 			//ShellMode = 1时, 切换到程序执行
-			if (key == 0x2c1a || key == 0x011b){
+			if (key == KEY_CTRL_Z || key == KEY_ESC){
 				ShellMode = 0;
-				CLS();
-				if (key == 0x2c1a)//Ctrl + Z
+				if (key == KEY_CTRL_Z)//Ctrl + Z
 				{
 					//KillProg(RunID);
 					killall();
 				}
+				cls();
 			}
 			continue;
 		}
@@ -231,7 +241,7 @@ int main(){
 			osi id = batchList[batchID++];
 			PrintChar(id + '0',YELLOW);
 			sleep();
-			CLS();
+			cls();
 			RunProg(id);
 			ShellMode = 1;
 			continue;

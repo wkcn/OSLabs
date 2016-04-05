@@ -32,7 +32,7 @@ void SetCursor(osi r, osi c){
 			);
 }
 
-void CLS(){
+void cls(){
  	/*
 	AH = 06h to scroll up
        = 07h to scroll down

@@ -58,7 +58,7 @@ typedef int dd;
 extern "C" uint16_t GetKey();
 extern "C" void memcpy(void *dest,const void *src,uint16_t n);
 
-#define max(a,b) (a)>(b)?(a):(b)
-#define min(a,b) (a)<(b)?(a):(b)
+#define max(a,b) ((a)>(b)?(a):(b))
+#define min(a,b) ((a)<(b)?(a):(b))
 
 #endif
