@@ -37,6 +37,38 @@ void PrintTime(uint16_t t,uint8_t offset){
 	Print2Num(second);
 }
 
+char dbuf[1024];
+__attribute__((regparm(1)))
+uint16_t GetNextCluster(uint16_t u){
+	//get fat
+	int t = u * 3 / 2;
+	int p = t / 512;
+	int o = t % 512;
+	ReadFloppy(1 + p,2,dbuf);	
+	//uint16_t w = ((buf[o+1]&0xFF) << 8) | (buf[o]&0xFF);
+	//注意位扩展:-(
+	uint16_t w = *(uint16_t*)(dbuf + o);
+	if  (u % 2 == 0){
+		w &= 0xFFF;
+	}else{
+		w = (w >> 4) & 0xFFF;
+	}
+	return w;
+}
+
+__attribute__((regparm(1)))
+void PrintClusters(uint16_t u){
+	PrintNum(u);
+	u = GetNextCluster(u);
+	for(int i = 0;i < 5 &&(!(u >= 0xFF8));++i){
+		PrintChar(',');
+		PrintNum(u);
+		u = GetNextCluster(u);
+	}
+	if (!(u >= 0xFF8)){
+		PrintStr(",...");
+	}
+}
 int main(){
 	
 	bool first = true;
@@ -49,7 +81,7 @@ int main(){
 			if (e.DIR_Name[10] == 0)continue;
 			if (first){
 				first = false;
-				PrintStr("Filename    Size  Date       Time(UTC+8)",LBLUE);
+				PrintStr("Filename    Size  Date       Time(UTC+8) Clusters",LBLUE);
 				PrintStr(NEWLINE);
 			}
 			//Print Name
@@ -76,6 +108,9 @@ int main(){
 			PrintChar(' ');
 			//使用东八区时间
 			PrintTime(e.LAST_WrtTime, 8);
+			//Print Clusters
+			PrintStr("    ");
+			PrintClusters(e.DIR_FstClus);
 			PrintStr(NEWLINE);
 		}
 	}

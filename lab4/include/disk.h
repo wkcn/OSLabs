@@ -91,7 +91,7 @@ void ls(){
 __attribute__((regparm(2)))
 int LoadFile(char *filename, char *dest){
 	char buf[1024];
-	Entry e; // 效率需要
+	Entry e;
 	for (int i = 19;i < 19 + 14;++i){
 		ReadFloppy(i,1,buf);
 		for (int j = 0;j < 512/32;++j){
@@ -101,17 +101,19 @@ int LoadFile(char *filename, char *dest){
 				if (filename[k] != e.DIR_Name[k]){
 					can = false;
 					break;
-				}
-			}
+			 	}
+			} 
 			if (!can)continue;
 			//FOUND_ENTRY
 			uint16_t u = e.DIR_FstClus;
 			while (!(u >= 0xFF8)){
 				//int offset = 512 * 33 + (u - 2) * 512;
 				int y = 33 + (u - 2);
+
 				ReadFloppy(y,1,buf);
 				memcpy(dest,buf,512); // 这里按512覆盖, 不考虑不满512的情况
 				dest += 512;
+
 				//get fat
 				int t = u * 3 / 2;
 				int p = t / 512;
@@ -126,7 +128,7 @@ int LoadFile(char *filename, char *dest){
 					w = (w >> 4) & 0xFFF;
 				}
 				u = w;
-			}
+			} 
 			return e.DIR_FileSize;
 		}
 	}

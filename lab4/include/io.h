@@ -129,9 +129,9 @@ int PrintNum(osi num, osi color = WHITE){
 	return i;
 }
 
+const char ch[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
 __attribute__((regparm(1)))
 void PrintHex(char num, osi color = WHITE){
-	const char ch[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
 	PrintChar(ch[(num>>4)&0xF],color);
 	PrintChar(ch[(num)&0xF],color);
 }
