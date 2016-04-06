@@ -1,7 +1,6 @@
 BITS 16
 [global _start]
 [extern main]
-[global memcpy]
 [global ShellMode]
 [global GetKey]
 [global RunID]
@@ -78,38 +77,6 @@ GetKey:
 WKCNINT21H:
 	iret
 
-memcpy:
-	cli
-	;memcpy(dest,src,size)
-	push bp
-	push si
-	push es
-	push di
-	push cx
-	push ax
-	mov bp, sp
-	;void* 为4个字节:-( 而我们用的是16bits!
-	mov cx, [ss:(bp + 2 + 2 + 8 + 2 * 6)]
-	mov si, [ss:(bp + 2 + 2 + 4 + 2 * 6)]
-	mov di, [ss:(bp + 2 + 2 + 0 + 2 * 6)]
-	mov ax, cs
-	mov es, ax
-	MEMCPYGOON:
-		mov al, [es:si]
-		mov [es:di], al
-		inc si
-		inc di
-	loop MEMCPYGOON
-	pop ax
-	pop cx
-	pop di
-	pop es
-	pop si
-	pop bp
-	sti
-	o32 ret
-
-
 %macro SaveReg 1
 	mov ax, %1
 	mov [bx + _%1_OFFSET], ax
@@ -167,18 +134,19 @@ KillProg:
 	o32 ret
 
 WKCNINT20H:
-	;程序中止
-	push ds
+	;发送程序中止信号给内核
+	push si
+	push es
 	push ax
-	mov ax, cs
-	mov ds, ax
-	;push word[RunID]
-	;call KillProg
-	mov ax, 0
-	mov [ShellMode], ax
-	mov [RunID], ax
+	mov ax, 0x00
+	mov es, ax
+	mov ax, 0x7c00
+	mov si, ax
+	mov ax, 1
+	mov [es:si], ax
 	pop ax
-	pop ds
+	pop es
+	pop si
 	iret
 
 

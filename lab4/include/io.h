@@ -110,7 +110,7 @@ void PrintStrN(const char *str, osi len, osi color = 0x07){
 }
 
 __attribute__((regparm(1)))
-void PrintNum(osi num, osi color = WHITE){
+int PrintNum(osi num, osi color = WHITE){
 	char temp[16];
 	if (num < 0){
 		PrintChar('-');
@@ -126,6 +126,7 @@ void PrintNum(osi num, osi color = WHITE){
 	for (int j = i - 1;j >= 0;--j){
 		PrintChar(temp[j] + '0', color);
 	}
+	return i;
 }
 
 __attribute__((regparm(1)))

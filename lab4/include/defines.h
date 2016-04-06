@@ -49,6 +49,12 @@ enum Color{
 	LWHITE
 };
 
+void memcpy(void *dest,void *src,int size){
+	for (int i = 0;i < size;++i){
+		*(((char*)dest)+i) = *(((char*)src)+i);
+	}
+}
+
 typedef uint16_t osi; // default interger in OS
 
 typedef char db;

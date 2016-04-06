@@ -20,6 +20,7 @@ killall  Kill all Processes\n\r\
 uname    Show os info\n\r\
 Keys:\n\r\
 Esc      Back to Shell but not kill processes\n\r\
+Ctrl+C   Clear Screen\n\r\
 Ctrl+Z   Back to Shell and kill all processes\n\r\
 ";
 const char *NOPROG_INFO = "No User Process is Running!";
@@ -56,7 +57,6 @@ int RunProg(char *filename){
 	if (si == 0)return 0;
 	PROG_SEGMENT_S += ((si + (1<<4)-1) >> 4);
 
-	//借用20H INT位置!
 	asm volatile(
 			"push es;"
 			"push si;"
@@ -71,7 +71,6 @@ int RunProg(char *filename){
 			"pop si;"
 			"pop es;"
 			);
-
 	WritePCB(addrseg);
 	return si;
 }
@@ -177,8 +176,6 @@ void Execute(){
 		top();
 	}else if (CommandMatch("cls")){
 		cls();
-	}else if (CommandMatch("ls")){
-		ls();
 	}else if (CommandMatch("r")){
 		if(RunNum > 1){
 			ShellMode = 1;
@@ -251,6 +248,9 @@ int main(){
 	 while(1){
 		//Tab
 		uint16_t key = GetKey();
+		if (key == KEY_CTRL_C){
+			cls();
+		}
 		//ShellMode = 0时, 为Shell操作
 		if (ShellMode){
 			//ShellMode = 1时, 切换到程序执行

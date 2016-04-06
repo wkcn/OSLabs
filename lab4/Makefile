@@ -32,7 +32,7 @@ write_image: loadknl.bin
 write_knl: kernel.bin
 	cp $(BUILD_DIR)/kernel.bin $(DISK_DIR)/
 
-build_progs: wkcn1.com wkcn2.com wkcn3.com wkcn4.com kan.com hello.com
+build_progs: wkcn1.com wkcn2.com wkcn3.com wkcn4.com kan.com hello.com ls.com
 	for name in $^; do\
 		cp $(BUILD_DIR)/$$name $(DISK_DIR)/;\
 	done
