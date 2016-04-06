@@ -35,10 +35,9 @@ MaxRunNum equ 5
 ;Init
 	mov ax,cs
 	mov ds,ax
-	;mov ax,0
-	;mov ss,ax
-	;mov ax,7e00h
-	;mov sp,ax
+	mov ax, 0
+	mov ss, ax
+	mov sp, 7c00h
 
 	
 	WriteIVT 08h,WKCNINTTimer ; Timer Interupt

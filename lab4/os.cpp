@@ -55,7 +55,7 @@ int RunProg(char *filename){
 	uint16_t addrseg = (PROG_SEGMENT + PROG_SEGMENT_S); 
 	int si = LoadFile(filename,addr);
 	if (si == 0)return 0;
-	PROG_SEGMENT_S += ((si + (1<<4)-1) >> 4);
+	PROG_SEGMENT_S += ((si + 0x100 + (1<<4) - 1) >> 4);
 
 	asm volatile(
 			"push es;"
