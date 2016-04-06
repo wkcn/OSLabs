@@ -61,11 +61,10 @@ void ReadFloppy(uint16_t sectorID, uint8_t sectorNum, void *data){
 	uint8_t dl = 0; // 驱动器号, 0表示软盘A
 	uint8_t ah = 2; // 功能号
 	uint8_t al = sectorNum; // 读扇区数
-	//bx offset; es 
 	asm volatile(
 			"push es;"
 			"push ax;"
-			"mov ax, cs;"
+			"mov ax, ds;"
 			"mov es, ax;"
 			"pop ax;"
 			"int 0x13;"
@@ -74,6 +73,7 @@ void ReadFloppy(uint16_t sectorID, uint8_t sectorNum, void *data){
 			:"a"((ah<<8)|al),"b"(data),"c"((ch<<8)|cl),"d"((dh<<8)|dl)	
 			);
 }
+
 
 void ls(){
 	char buf[512];
@@ -84,10 +84,10 @@ void ls(){
 			memcpy(&e,buf + j * 32,32);
 			PrintStr(e.DIR_Name,11);
 			if(e.DIR_Name[1] != 0)cout << endl;
-		}
-	}
-}
-
+ 		}
+ 	}
+} 
+ 
 __attribute__((regparm(2)))
 int LoadFile(char *filename, char *dest){
 	char buf[1024];

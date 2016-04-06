@@ -5,16 +5,16 @@ BITS 16
 [global GetKey]
 [global RunID]
 [global RunNum]
+[global MaxRunNum]
 [global KillProg]
 [global WritePCB]
 
-PCB_SEGMENT equ 1000h
-PROG_SEGMENT equ 0a00h
+;16k = 0x4000
+;4M = 0x4 0 0000
+PCB_SEGMENT equ 0010h
+PROG_SEGMENT equ 2000h
 UserProgramOffset equ 100h
-PROCESS_SIZE equ 1024
-PROCESS_SEG_SIZE equ 1024 / 16 ; 以段计数
 UpdateTimes equ 20
-MaxRunNum equ 5
 
 ;写入中断向量表
 %macro WriteIVT 2
@@ -78,11 +78,11 @@ WKCNINT21H:
 
 %macro SaveReg 1
 	mov ax, %1
-	mov [bx + _%1_OFFSET], ax
+	mov [es:(bx + _%1_OFFSET)], ax
 %endmacro
 
 %macro LoadReg 1
-	mov ax, [bx + _%1_OFFSET]
+	mov ax, [es:(bx + _%1_OFFSET)]
 	mov %1, ax
 %endmacro
 
@@ -180,29 +180,37 @@ WKCNINTTimer:
 	;ES,DS,DI,SI,BP,SP,BX,DX,CX,AX,SS,IP,CS,FLAGS
 	mov bx,PCBSize
 	mul bx
-	add ax, Processes; current process PCB
+	;add ax, Processes; current process PCB
 	mov bx,ax
-	SaveReg ES
+	push ds
+	mov ax, PCB_SEGMENT
+	mov ds, ax
+	mov ax, es
+	mov [bx + _ES_OFFSET], ax 
+	pop ds
+	mov ax, PCB_SEGMENT
+	mov es, ax
+	;SaveReg ES
 	SaveReg DI
 	SaveReg SI
 	SaveReg BP
-	pop word[bx + _DS_OFFSET] ;System Stack: *\flags\cs\ip\
+	pop word[es:(bx + _DS_OFFSET)] ;System Stack: *\flags\cs\ip\
 	nop; 如果不加这句,会丢失下面一条pop语句,奇怪的bug!
-	pop word[bx + _IP_OFFSET]
-	pop word[bx + _CS_OFFSET]
-	pop word[bx + _FLAGS_OFFSET]
+	pop word[es:(bx + _IP_OFFSET)]
+	pop word[es:(bx + _CS_OFFSET)]
+	pop word[es:(bx + _FLAGS_OFFSET)]
 	;System Stack: *
 	SaveReg SP
 	mov ax, [ds:DX_SAVE]
-	mov [bx + _DX_OFFSET], ax
+	mov [es:(bx + _DX_OFFSET)], ax
 	mov ax, [ds:CX_SAVE]
-	mov [bx + _CX_OFFSET], ax
+	mov [es:(bx + _CX_OFFSET)], ax
 	mov ax, [ds:BX_SAVE]
-	mov [bx + _BX_OFFSET], ax
+	mov [es:(bx + _BX_OFFSET)], ax
 	mov ax, ss
-	mov [bx + _SS_OFFSET], ax
+	mov [es:(bx + _SS_OFFSET)], ax
 	mov ax, [ds:AX_SAVE]
-	mov [bx + _AX_OFFSET], ax
+	mov [es:(bx + _AX_OFFSET)], ax
 	;All Saved!
 	;Run Next Program!
 
@@ -212,7 +220,7 @@ WKCNINTTimer:
 	mov ax, [ds:ShellMode]
 	cmp ax, 0
 	je UseShell
-	mov bx, [ds:RunNum]
+	mov bx, word[ds:RunNum]
 	cmp bx, 1; if eq, only shell but ShellMode = 1
 	ja NotOnlyShell ; bx > 1
 	;只有Shell, 强制切换回Shell
@@ -234,22 +242,28 @@ WKCNINTTimer:
 	;ES,DS,DI,SI,BP,SP,BX,DX,CX,AX,SS,IP,CS,FLAGS
 	mov bx,PCBSize
 	mul bx
-	add ax, Processes; current process PCB
+	;add ax, Processes; current process PCB
 	mov bx, ax
 	;Now DS is kernel DS
 	LoadReg SP
-	mov ax, word[bx + _SS_OFFSET]
+	mov ax, word[es:(bx + _SS_OFFSET)]
 	mov ss, ax
-	mov ax, word[bx + _FLAGS_OFFSET]
+	mov ax, word[es:(bx + _FLAGS_OFFSET)]
 	push ax
-	mov ax, word[bx + _CS_OFFSET]
+	mov ax, word[es:(bx + _CS_OFFSET)]
 	push ax
-	mov ax, word[bx + _IP_OFFSET]
+	mov ax, word[es:(bx + _IP_OFFSET)]
 	push ax
-	LoadReg ES
 	LoadReg DI
 	LoadReg SI
 	LoadReg BP
+	;LoadReg ES
+
+	mov ax, es
+	mov ds, ax
+	mov ax, [es:(bx + _ES_OFFSET)]
+	mov es, ax
+
 	mov cx, [bx + _CX_OFFSET]
 	mov dx, [bx + _DX_OFFSET]
 	mov ax, [bx + _DS_OFFSET]
@@ -273,6 +287,7 @@ WKCNINTTimer:
 WritePCB:
 	cli
 	push bp
+	push ds
 	push es
 	push dx
 	push cx
@@ -281,15 +296,19 @@ WritePCB:
 
 	;开始计算PCB位置
 	mov ax, cs
-	mov es, ax
-	mov ax, word[es:RunNum]
+	mov ds, ax
+
+	mov bx, PCB_SEGMENT
+	mov es, bx
+
+	mov ax, word[RunNum]
 	mov bx, PCBSize
 	mul bx
-	add ax, Processes
+	;add ax, Processes
 	mov bx, ax
 	;bx = new progress PCB
 	mov bp, sp
-	mov cx, [ss:(bp + 2 + 2 + 2 * 6)]
+	mov cx, [ss:(bp + 2 + 2 + 2 * 7)]
 	;cx = segment addr
 	;es = kernel segment
 	mov [es:(bx + _CS_OFFSET)], cx
@@ -302,16 +321,17 @@ WritePCB:
 	mov ax, 512
 	mov [es:(bx + _FLAGS_OFFSET)], ax
 	;分配进程ID
-	mov ax, [es:ProcessIDAssigner]
+	mov ax, [ProcessIDAssigner]
 	mov [es:(bx + _ID_OFFSET)], ax
-	inc word[es:ProcessIDAssigner]
-	inc word[es:RunNum]
+	inc word[ProcessIDAssigner]
+	inc word[RunNum]
 
 	pop ax
 	pop bx
 	pop cx
 	pop dx
 	pop es
+	pop ds
 	pop bp
 
 	sti
@@ -349,6 +369,7 @@ PCBCONST:
 ProcessesTable:
 	RunID dw 0 ; default to open shell
 	RunNum dw 1
+	MaxRunNum dw 16
 	ShellMode dw 0
 	ProcessIDAssigner dw 1; 进程 ID 分配
 
@@ -371,5 +392,3 @@ Processes:
 	_CS dw 0
 	_FLAGS dw 512
 FirstProcessEnd:
-
-times PCBSize * MaxRunNum db 0

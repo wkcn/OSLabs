@@ -4,8 +4,10 @@ BITS 16
 [extern main] 
 
 _start:
-	mov ax, cs
-	mov ds, ax
+	;mov ax, cs
+	;mov ds, ax
+	;mov ss, ax
+	;mov sp, 100h - 4
 	call main
 	;发送程序结束信号,返回Shell
 	int 20h

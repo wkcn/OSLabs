@@ -31,7 +31,6 @@ const osi maxBufSize = 128;
 #define PROCESS_SEG_SIZE 0x40
 #define PROG_SEGMENT 0xa00
 #define PCB_SIZE 31
-const osi MaxRunNum = 5;
 char buf[maxBufSize]; // 指令流
 osi bufSize = 0;
 osi par[16][2];
@@ -45,11 +44,13 @@ extern "C" void WritePCB(uint16_t addr);
 extern "C" uint16_t ShellMode;
 extern "C" uint16_t RunID;
 extern "C" uint16_t RunNum;
+extern "C" uint16_t MaxRunNum;
 
 uint16_t PROG_SEGMENT_S = 0;
 
 __attribute__((regparm(1)))
 int RunProg(char *filename){
+	if (RunNum >= MaxRunNum)return 0;
 	char *addr;
 	addr = (char*)(((PROG_SEGMENT + PROG_SEGMENT_S) << 4) + 0x100); 
 	uint16_t addrseg = (PROG_SEGMENT + PROG_SEGMENT_S); 
@@ -77,7 +78,6 @@ int RunProg(char *filename){
 
 __attribute__((regparm(1)))
 int RunProg(osi i){
-	if (RunNum >= MaxRunNum)return 0;
 	char filename[12] = "WKCN1   COM";
 	filename[4] = i + '0';
 	cls();

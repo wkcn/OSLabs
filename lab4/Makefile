@@ -18,7 +18,8 @@ BOCHS = bochs
 BOCHSFLAGS = -q -f bochsrc.bxrc
 
 all: clean build_dir write_image write_knl build_progs
-	umount disk/
+	umount $(DISK_DIR)/
+
 
 build_dir:
 	-mkdir $(BUILD_DIR)
@@ -32,7 +33,7 @@ write_image: loadknl.bin
 write_knl: kernel.bin
 	cp $(BUILD_DIR)/kernel.bin $(DISK_DIR)/
 
-build_progs: wkcn1.com wkcn2.com wkcn3.com wkcn4.com kan.com hello.com ls.com bpb.com bs.com
+build_progs: wkcn1.com wkcn2.com wkcn3.com wkcn4.com kan.com hello.com bs.com bpb.com ls.com 
 	for name in $^; do\
 		cp $(BUILD_DIR)/$$name $(DISK_DIR)/;\
 	done
@@ -51,7 +52,8 @@ kernel.bin: kernel.o os.o
 %.o: %.asm
 	$(AS) $(ASFLAGS) -f elf32 $^ -o $(BUILD_DIR)/$@
 %.com: %.o header.o
-	$(LD) $(LDFLAGS) -Ttext 0x100 --oformat binary $(BUILD_DIR)/header.o $(BUILD_DIR)/$< -o $(BUILD_DIR)/$@
+	#$(LD) $(LDFLAGS) -Ttext 0x100 --oformat binary $(BUILD_DIR)/header.o $(BUILD_DIR)/$< -o $(BUILD_DIR)/$@
+	$(LD) $(LDFLAGS) -T linker_100.ld --oformat binary $(BUILD_DIR)/header.o $(BUILD_DIR)/$< -o $(BUILD_DIR)/$@
 %.com: %.asm
 	$(AS) $(ASFLAGS) -f bin $^ -o $(BUILD_DIR)/$@
 	#$(LD) $(LDFLAGS) -Ttext 0x0100 $(BUILD_DIR)/$^ -o $(DISK_DIR)/$@ 
