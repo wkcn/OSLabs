@@ -88,8 +88,8 @@ void ls(){
  	}
 } 
  
-__attribute__((regparm(2)))
-int LoadFile(char *filename, char *dest){
+__attribute__((regparm(3)))
+int LoadFile(char *filename, uint16_t offset, uint16_t seg){
 	char buf[1024];
 	Entry e;
 	for (int i = 19;i < 19 + 14;++i){
@@ -111,8 +111,26 @@ int LoadFile(char *filename, char *dest){
 				int y = 33 + (u - 2);
 
 				ReadFloppy(y,1,buf);
-				memcpy(dest,buf,512); // 这里按512覆盖, 不考虑不满512的情况
-				dest += 512;
+				for (int w = 0;w < 512;++w){
+					asm volatile(
+							"push es;"
+							"push si;"
+							"mov es, ax;"
+							"mov si, bx;"
+							"mov es:[si], cl;"
+							"pop si;"
+							"pop es;"
+							:
+							:"a"(seg),"b"(offset),"c"(buf[w])
+							);
+					offset += 1;
+					if (offset == 0x0000){
+						//0x0 0000
+						seg += 0x1000;
+					}
+				}
+				//memcpy(dest,buf,512); // 这里按512覆盖, 不考虑不满512的情况
+				//dest += 512;
 
 				//get fat
 				int t = u * 3 / 2;

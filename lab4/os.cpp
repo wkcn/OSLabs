@@ -28,9 +28,6 @@ const char *BATCH_INFO = "Batching Next Program: ";
 const char *LS_INFO = "Please Input These Number to Run a Program or more :-)\n\r1,2,3,4 - 45 angle fly char\n\r5 Draw my name";
 
 const osi maxBufSize = 128;
-#define PROCESS_SEG_SIZE 0x40
-#define PROG_SEGMENT 0xa00
-#define PCB_SIZE 31
 char buf[maxBufSize]; // 指令流
 osi bufSize = 0;
 osi par[16][2];
@@ -45,19 +42,28 @@ extern "C" uint16_t ShellMode;
 extern "C" uint16_t RunID;
 extern "C" uint16_t RunNum;
 extern "C" uint16_t MaxRunNum;
+extern "C" uint16_t PROG_SEGMENT;
 
 uint16_t PROG_SEGMENT_S = 0;
 
+void killall(){ 
+	ShellMode = 0;
+	RunID = 0;
+	RunNum = 1;
+}
 __attribute__((regparm(1)))
 int RunProg(char *filename){
 	if (RunNum >= MaxRunNum)return 0;
-	char *addr;
-	addr = (char*)(((PROG_SEGMENT + PROG_SEGMENT_S) << 4) + 0x100); 
+	//addr = (char*)(((PROG_SEGMENT + PROG_SEGMENT_S) << 4) + 0x100); 
+	//uint16_t addrseg = (PROG_SEGMENT + PROG_SEGMENT_S); 
+	uint16_t offset = 0x100;
+	//这样有一个好处, 即使内存不足, 也不会影响PCB
 	uint16_t addrseg = (PROG_SEGMENT + PROG_SEGMENT_S); 
-	int si = LoadFile(filename,addr);
+	int si = LoadFile(filename,offset,addrseg);
 	if (si == 0)return 0;
 	PROG_SEGMENT_S += ((si + 0x100 + (1<<4) - 1) >> 4);
 
+	//设置用户程序运行标志
 	asm volatile(
 			"push es;"
 			"push si;"
@@ -92,11 +98,6 @@ void top(){
 	PrintStr(NEWLINE,WHITE);
 }
 
-void killall(){
-	ShellMode = 0;
-	RunID = 0;
-	RunNum = 1;
-}
 
 __attribute__((regparm(2)))
 void PrintInfo(const char* str, uint16_t color){

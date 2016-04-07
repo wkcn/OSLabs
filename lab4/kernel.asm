@@ -6,13 +6,14 @@ BITS 16
 [global RunID]
 [global RunNum]
 [global MaxRunNum]
+[global PROG_SEGMENT]
 [global KillProg]
 [global WritePCB]
 
 ;16k = 0x4000
 ;4M = 0x4 0 0000
-PCB_SEGMENT equ 2000h
-PROG_SEGMENT equ 4000h
+PCB_SEGMENT equ 3000h
+PROG_SEGMENT_ equ 5000h
 UserProgramOffset equ 100h
 UpdateTimes equ 20
 
@@ -370,6 +371,7 @@ ProcessesTable:
 	RunID dw 0 ; default to open shell
 	RunNum dw 1
 	MaxRunNum dw 16
+	PROG_SEGMENT dw PROG_SEGMENT_
 	ShellMode dw 0
 	ProcessIDAssigner dw 1; 进程 ID 分配
 
