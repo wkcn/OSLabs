@@ -110,11 +110,11 @@ int main(){
 	PrintNum(header.BPB_NumHeads);
 	PrintStr(NEWLINE);
 
-	PrintStr("HiddSec dd ");
+	PrintStr("HiddSec dd 0x");
 	PrintNum(header.BPB_HiddSec);
 	PrintStr(NEWLINE);
 
-	PrintStr("TotSec32 dd ");
+	PrintStr("TotSec32 dd 0x");
 	PrintNum(header.BPB_TotSec32);
 	PrintStr(NEWLINE);
 

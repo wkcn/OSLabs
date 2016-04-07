@@ -11,8 +11,8 @@ BITS 16
 
 ;16k = 0x4000
 ;4M = 0x4 0 0000
-PCB_SEGMENT equ 0010h
-PROG_SEGMENT equ 2000h
+PCB_SEGMENT equ 2000h
+PROG_SEGMENT equ 4000h
 UserProgramOffset equ 100h
 UpdateTimes equ 20
 

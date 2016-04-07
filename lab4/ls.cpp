@@ -14,7 +14,7 @@ void PrintDate(uint16_t date){
 	PrintChar('.');
 	uint8_t day = (date) & 0x1F;
 	PrintNum(day);
-	PrintChar(' ');
+	PrintChar(',');
 	uint16_t year = uint16_t((date >> 9) & 0x7F) + 1980;
 	PrintNum(year);
 }
