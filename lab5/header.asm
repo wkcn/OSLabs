@@ -10,6 +10,7 @@ _start:
 	;mov sp, 100h - 4
 	call main
 	;发送程序结束信号,返回Shell
+	sti
 	int 20h
 	;mov ax, 0x00
 	;mov es, ax

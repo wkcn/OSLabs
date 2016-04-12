@@ -5,6 +5,7 @@ asm(".code16gcc\n");
 #include "include/string.h"
 #include "include/disk.h"
 #include "include/keyboard.h"
+#include "include/task.h"
 //#include "include/interrupt.h"
 
 const char *OS_INFO = "MiraiOS 0.1";
@@ -25,20 +26,11 @@ int batchSize = 0;
 
 extern "C" void WritePCB(uint16_t addr);
 extern "C" uint16_t ShellMode;
-extern "C" uint16_t RunID;
 extern "C" uint16_t RunNum;
-extern "C" uint16_t MaxRunNum;
 extern "C" uint16_t PROG_SEGMENT;
+extern "C" uint8_t INT09H_FLAG;
 
 uint16_t PROG_SEGMENT_S = 0;
-
-void killall(){ 
-	asm volatile ("cli;");
-	ShellMode = 0;
-	RunID = 0;
-	RunNum = 1;
-	asm volatile ("sti;");
-}
 
 __attribute__((regparm(1)))
 int RunProg(char *filename){
@@ -122,6 +114,11 @@ bool IsNum(int i){
 		if (c < '0' || c > '9')return false;
 	}
 	return true;
+}
+
+void killall(){
+	KillAll();
+	RunNum = 1;
 }
 
 void Execute(){  
@@ -252,6 +249,9 @@ int main(){
 			}
 			if (NeedRetnShell()){
 				killall();
+			}
+			if (RunNum == 1){
+				ShellMode = 0;
 			}
 			continue;
 		}

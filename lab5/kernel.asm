@@ -4,14 +4,11 @@ BITS 16
 
 [global ShellMode]
 [global GetKey]
-[global RunID]
 [global RunNum]
-[global MaxRunNum]
 [global PROG_SEGMENT]
-[global KillProg]
 [global WritePCB]
 
-[global INT09HPROG]
+[global INT09H_FLAG]
 
 ;16k = 0x4000
 ;4M = 0x4 0 0000
@@ -55,9 +52,12 @@ UpdateTimes equ 20
 
 
 _start:
-	mov ax,cs
-	mov ds,ax
-	mov ss,ax
+
+	mov ax, PCB_SEGMENT
+	mov es, ax
+	mov ax, 1
+	mov [es:_STATE_OFFSET], ax; 设置Shell为运行态
+	
 	;SetTimer
 	mov al,34h
 	out 43h,al ; write control word
@@ -65,6 +65,12 @@ _start:
 	out 40h,al
 	mov al,ah
 	out 40h,al
+
+	mov ax,cs
+	mov ds,ax
+	mov ss,ax
+	mov es,ax
+
 	jmp main
 
 GetKey:
@@ -91,65 +97,11 @@ GetKey:
 	mov %1, ax
 %endmacro
 
-KillProg:
-	cli
-	;KillProg(dw runid)
-	;runid must be not 0 !
-	;Use si to cover di
-	push ds
-	push es
-	push bp
-	push dx
-	push cx
-	push bx
-	push ax
-	mov bp, sp
-	mov ax, [ss:(bp + 2 + 2 + 2 * 7)]
-	mov bx, PCBSize
-	mul bx
-	mov di, ax
-	mov ax, RunNum
-	cmp ax, 1
-	je KillProgEnd
-	dec ax
-	mul bx
-	mov si, ax
-
-	;Cover
-	cld
-	mov ax, PCB_SEGMENT
-	mov ds, ax
-	mov es, ax
-
-	mov cx, PCBSize
-	Covering:
-		movsb
-	loop Covering
-
-	mov ax, cs; kernel
-	mov es, ax
-	mov ax, 0
-	mov [es:ShellMode], ax
-	mov [es:RunID], ax
-	dec word [es:RunNum]
-
-	KillProgEnd:
-
-	pop ax
-	pop bx
-	pop cx
-	pop dx
-	pop bp
-	pop es
-	pop ds
-	sti
-
-	o32 ret
-
 ;键盘中断
 WKCNINT09H:	
 	push es
 	push ax
+
 	mov ax, cs
 	mov es, ax
 
@@ -162,6 +114,32 @@ WKCNINT09H:
 	iret
 
 WKCNINT20H:
+
+	cli
+	push es
+	push dx
+	push bx
+	push ax
+
+	mov ax, cs
+	mov es, ax
+	mov ax, [es:RunID]
+	dec word [es:RunNum]
+	mov bx, PCBSize
+	mul bx
+	mov bx, ax
+	mov ax, PCB_SEGMENT
+	mov es, ax
+	mov ax, 0
+	mov [es:(bx + _STATE_OFFSET)], ax
+	pop ax
+	pop bx
+	pop dx
+	pop es
+	sti
+
+	iret
+
 	;发送程序中止信号给内核
 	push si
 	push es
@@ -193,16 +171,7 @@ WKCNINTTimer:
 	mov [ds:CX_SAVE], cx
 	mov [ds:DX_SAVE], dx
 
-	mov ax, word[ds:ShellMode]
-	cmp ax, 0
-	je ShellRunning
 	mov ax, word[ds:RunID]
-	mov bx, word[ds:RunNum]
-	cmp ax, bx
-	jb VALIDID
-	mov ax, 0
-	VALIDID:
-	ShellRunning:
 
 	;Must have a progress, it is Shell :-)
 	;ES,DS,DI,SI,BP,SP,BX,DX,CX,AX,SS,IP,CS,FLAGS
@@ -248,23 +217,33 @@ WKCNINTTimer:
 	mov ax, [ds:ShellMode]
 	cmp ax, 0
 	je UseShell
-	mov bx, word[ds:RunNum]
-	cmp bx, 1; if eq, only shell but ShellMode = 1
-	ja NotOnlyShell ; bx > 1
-	;只有Shell, 强制切换回Shell
-	mov ax, 0
-	mov [ds:ShellMode],ax
-	jmp UseShell
-	NotOnlyShell:
-	inc word[ds:RunID]
-	mov ax, [ds:RunID]
+	;运行用户程序
+	mov ax, word [ds:RunID]
+	mov bx, word [ds:MaxRunNum]
+	mov cx, PCBSize
+	FindUserProg:
+	inc ax
 	cmp ax, bx
-	jb NOOVERRIDE ; < namely valid
-	mov ax, 0
-	mov word[ds:RunID], ax
-	UseShell:
 
-	NOOVERRIDE:
+	jb MayExUserProg
+	; 越界了
+	mov ax, 0
+	jmp UseShell
+	MayExUserProg:
+	push ax
+	mul cx
+	mov si, ax
+	pop ax
+	cmp word [es:(si + _STATE_OFFSET)], 1
+	je GoodUserProg
+	jmp FindUserProg
+	UseShell:
+	GoodUserProg:
+	mov word[ds:RunID], ax
+
+LOAD_PCB:
+	;Parameter: ax = RunID
+	;Stack: *
 	;Restart RunID(ax)
 	;Must have a progress, it is Shell :-)
 	;ES,DS,DI,SI,BP,SP,BX,DX,CX,AX,SS,IP,CS,FLAGS
@@ -329,11 +308,21 @@ WritePCB:
 	mov bx, PCB_SEGMENT
 	mov es, bx
 
-	mov ax, word[RunNum]
-	mov bx, PCBSize
-	mul bx
-	;add ax, Processes
-	mov bx, ax
+	
+	mov ax, 0
+	mov cx, PCBSize
+
+	FIND_PCB_POS:
+		inc ax
+		push ax
+		mul cx
+		mov bx, ax
+		pop ax
+		cmp word [es:(bx + _STATE_OFFSET)], 0
+		je FINDED_PCB_POS
+	jmp FIND_PCB_POS
+
+	FINDED_PCB_POS:
 	;bx = new progress PCB
 	mov bp, sp
 	mov cx, [ss:(bp + 2 + 2 + 2 * 7)]
@@ -353,6 +342,8 @@ WritePCB:
 	;分配进程ID
 	mov ax, [ProcessIDAssigner]
 	mov [es:(bx + _ID_OFFSET)], ax
+	mov ax, 1
+	mov [es:(bx + _STATE_OFFSET)], ax; 设置为运行态
 	inc word[ProcessIDAssigner]
 	inc word[RunNum]
 
@@ -378,8 +369,8 @@ DATA:
 	CX_SAVE dw 0
 	DX_SAVE dw 0
 IVT:
-	INT09HPROG dw 0
 	INT09HORG dd 0
+	INT09H_FLAG db 0
 PCBCONST:
 	PCBSize equ FirstProcessEnd - Processes
 	SetOffset _ID
@@ -409,7 +400,7 @@ ProcessesTable:
 
 Processes:
 	_ID db 0
-	_STATE db 0
+	_STATE db 0 ; 结束态0, 运行态1
 	_NAME db "0123456789ABCDEF" ; 16 bytes
 	_ES dw 0
 	_DS dw 0
