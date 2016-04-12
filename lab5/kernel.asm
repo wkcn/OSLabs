@@ -1,6 +1,7 @@
 BITS 16
 [global _start]
 [extern main]
+
 [global ShellMode]
 [global GetKey]
 [global RunID]
@@ -9,6 +10,8 @@ BITS 16
 [global PROG_SEGMENT]
 [global KillProg]
 [global WritePCB]
+
+[global INT09HPROG]
 
 ;16k = 0x4000
 ;4M = 0x4 0 0000
@@ -39,10 +42,16 @@ UpdateTimes equ 20
 	mov ss, ax
 	mov sp, 7c00h
 
-	
+	mov ax, cs
+	mov es, ax
+	mov ax, [es:09h * 4]
+	mov word [INT09HORG], ax
+	mov ax, [es:09h * 4 + 2]
+	mov word [INT09HORG + 2], ax
+
 	WriteIVT 08h,WKCNINTTimer ; Timer Interupt
+	WriteIVT 09h,WKCNINT09H
 	WriteIVT 20h,WKCNINT20H
-	;WriteIVT 21h,WKCNINT21H
 
 
 _start:
@@ -59,7 +68,6 @@ _start:
 	jmp main
 
 GetKey:
-	
 	mov ah,01h
 	int 16h
 	jz  NOKEY	;没有按键
@@ -72,9 +80,6 @@ GetKey:
 	HAVEKEY:
 
 	o32 ret
-
-WKCNINT21H:
-	iret
 
 %macro SaveReg 1
 	mov ax, %1
@@ -91,6 +96,7 @@ KillProg:
 	;KillProg(dw runid)
 	;runid must be not 0 !
 	;Use si to cover di
+	push ds
 	push es
 	push bp
 	push dx
@@ -98,38 +104,62 @@ KillProg:
 	push bx
 	push ax
 	mov bp, sp
-	mov ax, [ss:(bp + 2 + 2 + 2 * 6)]
+	mov ax, [ss:(bp + 2 + 2 + 2 * 7)]
 	mov bx, PCBSize
 	mul bx
-	mov di, ax; Set DI
+	mov di, ax
+	mov ax, RunNum
+	cmp ax, 1
+	je KillProgEnd
+	dec ax
+	mul bx
+	mov si, ax
+
+	;Cover
+	cld
 	mov ax, PCB_SEGMENT
+	mov ds, ax
 	mov es, ax
-	dec word[es:RunNum]
-	mov ax, [es:RunNum]
-	mul bx 
-	mov si, ax; Set SI
-	mov bx, 0
+
 	mov cx, PCBSize
-	COVERING:
-		mov al, [es:bx + si]
-		mov [es:bx + di], al
-		inc bx
-	loop COVERING
-	mov ax, 0
-	mov [es:si + _CS_OFFSET],ax ; set orics = 0
+	Covering:
+		movsb
+	loop Covering
+
 	mov ax, cs; kernel
 	mov es, ax
 	mov ax, 0
 	mov [es:ShellMode], ax
 	mov [es:RunID], ax
+	dec word [es:RunNum]
+
+	KillProgEnd:
+
 	pop ax
 	pop bx
 	pop cx
 	pop dx
 	pop bp
 	pop es
+	pop ds
 	sti
+
 	o32 ret
+
+;键盘中断
+WKCNINT09H:	
+	push es
+	push ax
+	mov ax, cs
+	mov es, ax
+
+	sti
+	pushf
+	call far [es:INT09HORG]
+
+	pop ax
+	pop es
+	iret
 
 WKCNINT20H:
 	;发送程序中止信号给内核
@@ -146,7 +176,6 @@ WKCNINT20H:
 	pop es
 	pop si
 	iret
-
 
 WKCNINTTimer:
 	cli
@@ -279,8 +308,8 @@ WKCNINTTimer:
 	out 20h,al
 	out 0A0h,al
 	pop ax
-
 	sti
+
 	iret
 
 WritePCB:
@@ -315,8 +344,9 @@ WritePCB:
 	mov [es:(bx + _SS_OFFSET)], cx
 	mov ax, UserProgramOffset
 	mov [es:(bx + _IP_OFFSET)], ax
-	;sub ax, 4
-	mov ax, 0xFFFF; 从0xFFFF减
+	sub ax, 4
+	;mov ax, 0xFFFF; 从0xFFFF减
+	;需要os.cpp配合
 	mov [es:(bx + _SP_OFFSET)], ax
 	mov ax, 512
 	mov [es:(bx + _FLAGS_OFFSET)], ax
@@ -333,8 +363,8 @@ WritePCB:
 	pop es
 	pop ds
 	pop bp
-
 	sti
+
 	o32 ret
 
 
@@ -347,6 +377,9 @@ DATA:
 	BX_SAVE dw 0
 	CX_SAVE dw 0
 	DX_SAVE dw 0
+IVT:
+	INT09HPROG dw 0
+	INT09HORG dd 0
 PCBCONST:
 	PCBSize equ FirstProcessEnd - Processes
 	SetOffset _ID

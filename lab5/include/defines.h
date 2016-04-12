@@ -55,8 +55,6 @@ void memcpy(void *dest,void *src,int size){
 	}
 }
 
-typedef uint16_t osi; // default interger in OS
-
 typedef char db;
 typedef uint16_t dw;
 typedef uint32_t dd;

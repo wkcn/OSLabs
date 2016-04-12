@@ -3,6 +3,7 @@
 
 #include "defines.h"
 
+
 char getchar(){
 	// 获得一个按键（需等待）
 	char ch;
@@ -13,10 +14,10 @@ char getchar(){
 	return ch;
 }
 
-osi GetCursor(){
+uint16_t GetCursor(){
 	// H: row
 	// L  column
-	osi p;
+	uint16_t p;
 	asm volatile("int 0x10;"
 			:"=d"(p)
 			:"a"(0x0300),"b"(0)
@@ -25,7 +26,7 @@ osi GetCursor(){
 }
 
 __attribute__((regparm(2)))
-void SetCursor(osi r, osi c){
+void SetCursor(uint16_t r, uint16_t c){
 	asm volatile("int 0x10;"
 			:
 			:"a"(0x0200),"b"(0),"d"((r << 8) | c)
@@ -53,8 +54,8 @@ void cls(){
 
 
 __attribute__((regparm(3)))
-void DrawChar(char ch,osi r,osi c,osi color = 0x07){
-	osi k = (r * 80 + c) * 2;
+void DrawChar(char ch,uint16_t r,uint16_t c,uint16_t color = 0x07){
+	uint16_t k = (r * 80 + c) * 2;
 	asm volatile(
 				"push es;"
 				"mov es, ax;"
@@ -67,34 +68,34 @@ void DrawChar(char ch,osi r,osi c,osi color = 0x07){
 }
 
 __attribute__((regparm(3)))
-void DrawText(const char *str,osi r,osi c,osi color = 0x07){
+void DrawText(const char *str,uint16_t r,uint16_t c,uint16_t color = 0x07){
 	while(*str){
 		DrawChar(*(str++),r,c++,color);
 	}
 }
 
 __attribute__((regparm(2)))
-void PrintChar(char ch, osi color = 0x07){
+void PrintChar(char ch, uint16_t color = 0x07){
 	//Use 10h interupt to get right cursor position
-	osi ocp = GetCursor();
-	osi orow = ocp >> 8;
-	osi ocol = ocp & 0x00FF;
+	uint16_t ocp = GetCursor();
+	uint16_t orow = ocp >> 8;
+	uint16_t ocol = ocp & 0x00FF;
 	asm volatile("int 0x10;"
                 :
                 : "a"(0x0E00 | ch), "b"(color)
 				);
 	//color
 	if (ch != '\n' && ch != '\b' && ch != '\r'){
-		osi cp = GetCursor();
-		osi row = cp >> 8;
-		osi col = cp & 0x00FF;
+		uint16_t cp = GetCursor();
+		uint16_t row = cp >> 8;
+		uint16_t col = cp & 0x00FF;
 		DrawChar(ch,orow,ocol,color);
 		SetCursor(row,col);
 	}
 }
 
 __attribute__((regparm(2)))
-void PrintStr(const char *str, osi color = 0x07){
+void PrintStr(const char *str, uint16_t color = 0x07){
 	while(*str){
 		PrintChar(*str,color);
 		++str;
@@ -102,15 +103,15 @@ void PrintStr(const char *str, osi color = 0x07){
 }
 
 __attribute__((regparm(3)))
-void PrintStrN(const char *str, osi len, osi color = 0x07){
-	for(osi i = 0;i < len;++i){
+void PrintStrN(const char *str, uint16_t len, uint16_t color = 0x07){
+	for(uint16_t i = 0;i < len;++i){
 		PrintChar(*str,color);
 		++str;
 	}
 }
 
 __attribute__((regparm(1)))
-int PrintNum(osi num, osi color = WHITE){
+int PrintNum(int num, uint16_t color = WHITE){
 	char temp[16];
 	if (num < 0){
 		PrintChar('-');
@@ -131,7 +132,7 @@ int PrintNum(osi num, osi color = WHITE){
 
 const char ch[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
 __attribute__((regparm(1)))
-void PrintHex(char num, osi color = WHITE){
+void PrintHex(char num, uint16_t color = WHITE){
 	PrintChar(ch[(num>>4)&0xF],color);
 	PrintChar(ch[(num)&0xF],color);
 }
@@ -140,7 +141,7 @@ void PrintHex(char num, osi color = WHITE){
 //	osi color;
 //};
 struct ostream{
-	osi color;
+	uint16_t color;
 };
 ostream cout;
 

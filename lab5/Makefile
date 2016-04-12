@@ -18,7 +18,6 @@ BOCHS = bochs
 BOCHSFLAGS = -q -f bochsrc.bxrc
 
 all: clean build_dir write_image write_knl build_progs
-	umount $(DISK_DIR)/
 
 
 build_dir:
@@ -28,15 +27,22 @@ build_dir:
 write_image: loadknl.bin
 	dd if=/dev/zero of=$(BUILD_DIR)/disk.img count=2880
 	dd if=$(BUILD_DIR)/loadknl.bin of=$(BUILD_DIR)/disk.img conv=notrunc
-	mount -o loop $(BUILD_DIR)/disk.img disk/
 
 write_knl: kernel.bin
+	mount -o loop $(BUILD_DIR)/disk.img disk/
 	cp $(BUILD_DIR)/kernel.bin $(DISK_DIR)/
+	umount $(DISK_DIR)/
 
-build_progs: wkcn1.com wkcn2.com wkcn3.com wkcn4.com kan.com hello.com bs.com bpb.com ls.com 
+build_progs: wkcn1.com wkcn2.com wkcn3.com wkcn4.com kan.com\
+   			hello.com bs.com bpb.com ls.com help.com
+
+	mount -o loop $(BUILD_DIR)/disk.img disk/
+
 	for name in $^; do\
 		cp $(BUILD_DIR)/$$name $(DISK_DIR)/;\
 	done
+
+	umount $(DISK_DIR)/
 
 loadknl.bin: loadknl.asm
 	$(AS) $(ASFLAGS) -f bin $^ -o $(BUILD_DIR)/$@

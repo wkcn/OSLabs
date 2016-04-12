@@ -5,36 +5,22 @@ asm(".code16gcc\n");
 #include "include/string.h"
 #include "include/disk.h"
 #include "include/keyboard.h"
+//#include "include/interrupt.h"
 
 const char *OS_INFO = "MiraiOS 0.1";
 const char *PROMPT_INFO = "wkcn > ";
-const char *HELP_INFO = "\
-Input a 1~5 for parallel running. A stream nums for serial running \n\r\
-Commands:\n\r\
-r        Go to look user processes\n\r\
-ls       list all programs\n\r\
-cls      Clear Screen\n\r\
-top      View all running processes\n\r\
-kill     Kill a process, ex: kill 3\n\r\
-killall  Kill all Processes\n\r\
-uname    Show os info\n\r\
-Keys:\n\r\
-Esc      Back to Shell but not kill processes\n\r\
-Ctrl+C   Clear Screen\n\r\
-Ctrl+Z   Back to Shell and kill all processes\n\r\
-";
 const char *NOPROG_INFO = "No User Process is Running!";
 const char *BATCH_INFO = "Batching Next Program: ";
 const char *LS_INFO = "Please Input These Number to Run a Program or more :-)\n\r1,2,3,4 - 45 angle fly char\n\r5 Draw my name";
 
-const osi maxBufSize = 128;
+const uint16_t maxBufSize = 128;
 char buf[maxBufSize]; // 指令流
-osi bufSize = 0;
-osi par[16][2];
-osi parSize = 0;
-osi batchList[5] = {5,1,2,3,4};
-osi batchID = 0;
-osi batchSize = 0;
+int bufSize = 0;
+int par[16][2];
+int parSize = 0;
+int batchList[5] = {5,1,2,3,4};
+int batchID = 0;
+int batchSize = 0;
 
 
 extern "C" void WritePCB(uint16_t addr);
@@ -60,8 +46,7 @@ int RunProg(char *filename){
 	//addr = (char*)(((PROG_SEGMENT + PROG_SEGMENT_S) << 4) + 0x100); 
 	//uint16_t addrseg = (PROG_SEGMENT + PROG_SEGMENT_S); 
 	uint16_t offset = 0x100;
-	//这样有一个好处, 即使内存不足, 也不会影响PCB
-	uint16_t addrseg = max((PROG_SEGMENT + PROG_SEGMENT_S), PROG_SEGMENT); 
+	uint16_t addrseg = (PROG_SEGMENT + PROG_SEGMENT_S);
 	int si = LoadFile(filename,offset,addrseg);
 	if (si == 0)return 0;
 	PROG_SEGMENT_S += ((si + 0x100 + (1<<4) - 1) >> 4);
@@ -86,7 +71,7 @@ int RunProg(char *filename){
 }
 
 __attribute__((regparm(1)))
-int RunProg(osi i){
+int RunProg(int i){
 	char filename[12] = "WKCN1   COM";
 	filename[4] = i + '0';
 	cls();
@@ -115,11 +100,11 @@ bool CommandMatch(const char* str){
 }
 
 __attribute__((regparm(1)))
-osi GetNum(osi i){
+int GetNum(int i){
 	//第一个参数 i = 1
-	osi j = par[i][0];
-	osi k = par[i][1];
-	osi res = 0;
+	int j = par[i][0];
+	int k = par[i][1];
+	int res = 0;
 	for (;j<k;++j){
 		char c = buf[j];
 		res = res * 10 + c - '0';
@@ -128,9 +113,9 @@ osi GetNum(osi i){
 }
 
 __attribute__((regparm(1)))
-bool IsNum(osi i){
-	osi j = par[i][0];
-	osi k = par[i][1];
+bool IsNum(int i){
+	int j = par[i][0];
+	int k = par[i][1];
 	if (j >= k)return false;
 	for (;j<k;++j){
 		char c = buf[j];
@@ -143,9 +128,9 @@ void Execute(){
 	if (bufSize <= 0)return;
 	batchSize = 0;
 	batchID = 0;
-	for (osi i = 0;i < bufSize && batchSize < 5;++i){
+	for (int i = 0;i < bufSize && batchSize < 5;++i){
 		char c = buf[i];
-		osi y = c - '0';
+		int y = c - '0';
 		if (y >= 1 && y <= 5){
 			batchList[batchSize++] = y;
 		}
@@ -158,7 +143,7 @@ void Execute(){
 	}
 	buf[bufSize] = ' ';
 	//以空格为分隔符号,最多十六个参数
-	osi i,j;
+	int i,j;
 	i = 0; j = 0;
 	while (i < 16 && j < bufSize){
 		for (;buf[j] == ' ' && j < bufSize;++j){
@@ -174,8 +159,6 @@ void Execute(){
 	}
 	if (CommandMatch("uname")){
 		PrintInfo(OS_INFO,WHITE);
-	}else if (CommandMatch("help")){
-		PrintStr(HELP_INFO,WHITE);
 	}else if (CommandMatch("top")){
 		top();
 	}else if (CommandMatch("cls")){
@@ -190,9 +173,9 @@ void Execute(){
 	}else if(CommandMatch("killall")){
 		killall();
 	}else if (IsNum(0)){
-		for (osi k = 0;k < parSize && buf[k];++k){
+		for (int k = 0;k < parSize && buf[k];++k){
 			char c = buf[k];
-			osi y = c - '0';
+			int y = c - '0';
 			if (y >= 1 && y <=5){
 				RunProg(y);
 			}
@@ -217,9 +200,9 @@ void Execute(){
 }
 
 void sleep(){ 
-	osi temp = 0;
+	int temp = 0;
 	while(temp  < 10000){
-		osi ut = 10000;
+		int ut = 10000;
 		while ( ut > 0){
 			--ut;
 		}
@@ -249,7 +232,7 @@ int main(){
 	DrawText(OS_INFO,0,0,LGREEN);
 	DrawText("You can input \'help\' to get more info",1,0,LGREEN);	
 	SetCursor(2,0);
-	 while(1){
+	while(1){
 		//Tab
 		uint16_t key = GetKey();
 		if (key == KEY_CTRL_C){
@@ -276,7 +259,7 @@ int main(){
 		//
 		if (batchSize > 0 && batchID < batchSize){
 			PrintStr(BATCH_INFO,YELLOW);
-			osi id = batchList[batchID++];
+			int id = batchList[batchID++];
 			PrintChar(id + '0',YELLOW);
 			sleep();
 			cls();
