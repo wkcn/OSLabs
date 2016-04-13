@@ -55,6 +55,27 @@ void memcpy(void *dest,void *src,int size){
 	}
 }
 
+uint16_t clock(){
+	uint16_t chcl, dhdl;
+	uint16_t hour,minute,second;
+	asm volatile(
+			"int 0x1a;"
+			:"=c"(chcl),"=d"(dhdl)
+			:"a"(0x0200)
+			);
+	hour = (chcl >> 8) & 0xFF;
+	minute = (chcl) & 0xFF;
+	second = (dhdl >> 8) & 0xFF;
+	uint16_t res = hour * 3600 + minute * 60 + second;
+	return res;
+}
+
+__attribute__((regparm(1)))
+void sleep(uint16_t seconds){
+	uint16_t old = clock();
+	while(clock() - old <= seconds);
+}
+
 typedef char db;
 typedef uint16_t dw;
 typedef uint32_t dd;

@@ -14,6 +14,22 @@ char getchar(){
 	return ch;
 }
 
+uint16_t getkey(){
+	uint16_t key;
+	asm volatile(
+			"mov ah, 0x01;"
+			"int 0x16;"
+			"jz KEYEND;"
+			"mov ah, 0;"
+			"int 0x16;"
+			"jmp KEYEND;"
+			"mov ax, 0;"
+			"KEYEND:;"
+			:"=a"(key)
+			);
+	return key;
+}
+
 uint16_t GetCursor(){
 	// H: row
 	// L  column

@@ -3,7 +3,6 @@ BITS 16
 [extern main]
 
 [global ShellMode]
-[global GetKey]
 [global RunNum]
 [global PROG_SEGMENT]
 
@@ -72,20 +71,6 @@ _start:
 
 	jmp main
 
-GetKey:
-	mov ah,01h
-	int 16h
-	jz  NOKEY	;没有按键
-	;按键了,获取字符
-	mov ah,00h
-	int 16h
-	jmp HAVEKEY
-	mov ax, 0
-	NOKEY:
-	HAVEKEY:
-
-	o32 ret
-
 %macro SaveReg 1
 	mov ax, %1
 	mov [es:(bx + _%1_OFFSET)], ax
@@ -103,6 +88,9 @@ WKCNINT09H:
 
 	mov ax, cs
 	mov es, ax
+
+	mov al,1
+	xor byte [es:INT09H_FLAG], al
 
 	sti
 	pushf

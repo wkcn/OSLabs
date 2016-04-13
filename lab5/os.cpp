@@ -6,9 +6,10 @@ asm(".code16gcc\n");
 #include "include/disk.h"
 #include "include/keyboard.h"
 #include "include/task.h"
+#include "include/version.h"
 //#include "include/interrupt.h"
 
-const char *OS_INFO = "MiraiOS 0.1";
+const char *OS_INFO = "MiraiOS 0.2";
 const char *PROMPT_INFO = "wkcn > ";
 const char *NOPROG_INFO = "No User Process is Running!";
 const char *BATCH_INFO = "Batching Next Program: ";
@@ -28,7 +29,7 @@ int batchSize = 0;
 extern "C" uint16_t ShellMode;
 extern "C" uint16_t RunNum;
 extern "C" const uint16_t PROG_SEGMENT;
-extern "C" uint8_t INT09H_FLAG;
+extern "C" const uint8_t INT09H_FLAG;
 
 uint16_t PROG_SEGMENT_S = 0;
 
@@ -101,7 +102,12 @@ void top(){
 	Top();
 }
 
-
+void uname(){
+	PrintStr(OS_INFO,LGREEN);
+	PrintStr(" #",LGREEN);
+	PrintNum(RELEASE_TIMES,LGREEN);
+	PrintStr(NEWLINE);
+}
 __attribute__((regparm(2)))
 void PrintInfo(const char* str, uint16_t color){
 	PrintStr(PROMPT_INFO,LCARM);
@@ -175,16 +181,8 @@ void Execute(){
 		++i;
 		parSize = i;
 	}
-	/*
-	for (int i = 0;i < parSize;++i){
-		for (int j = par[i][0];j<par[i][1];++j){
-			PrintChar(buf[j],YELLOW);
-		}
-		PrintStr(NEWLINE);
-	}
-	*/
 	if (CommandMatch("uname")){
-		PrintInfo(OS_INFO,WHITE);
+		uname();
 	}else if (CommandMatch("top")){
 		top();
 	}else if (CommandMatch("cls")){
@@ -233,17 +231,6 @@ void Execute(){
 	bufSize = 0;
 }
 
-void sleep(){ 
-	int temp = 0;
-	while(temp  < 10000){
-		int ut = 10000;
-		while ( ut > 0){
-			--ut;
-		}
-		++temp;
-	}
-}
-
 bool NeedRetnShell(){
 	uint8_t a;
 	asm volatile(
@@ -263,12 +250,12 @@ bool NeedRetnShell(){
 
 int main(){  
 	cls();
-	DrawText(OS_INFO,0,0,LGREEN);
+	uname();
 	DrawText("You can input \'help\' to get more info",1,0,LGREEN);	
 	SetCursor(2,0);
 	while(1){
 		//Tab
-		uint16_t key = GetKey();
+		uint16_t key = getkey();
 		if (key == KEY_CTRL_C){
 			cls();
 		}
@@ -287,8 +274,14 @@ int main(){
 			if (NeedRetnShell()){
 				KillAll();
 			}
-			if (RunNum == 1){
+			if (RunNum <= 1){
 				ShellMode = 0;
+			}
+
+			if (INT09H_FLAG){
+				DrawText("Ouch! Ouch!",24,65,YELLOW);
+			}else{
+				DrawText("           ",24,65,YELLOW);
 			}
 			continue;
 		}
@@ -298,7 +291,7 @@ int main(){
 			PrintStr(BATCH_INFO,YELLOW);
 			int id = batchList[batchID++];
 			PrintChar(id + '0',YELLOW);
-			sleep();
+			sleep(1);
 			cls();
 			RunProg(id);
 			ShellMode = 1;

@@ -17,12 +17,13 @@ QEMUFLAGS = -fda
 BOCHS = bochs
 BOCHSFLAGS = -q -f bochsrc.bxrc
 
-all: clean build_dir write_image write_knl build_progs
+all: build_dir counter write_image write_knl build_progs
 
 
 build_dir:
 	-mkdir $(BUILD_DIR)
 	-mkdir $(DISK_DIR)
+	./counter
 
 write_image: loadknl.bin
 	dd if=/dev/zero of=$(BUILD_DIR)/disk.img count=2880
@@ -34,7 +35,8 @@ write_knl: kernel.bin
 	umount $(DISK_DIR)/
 
 build_progs: wkcn1.com wkcn2.com wkcn3.com wkcn4.com kan.com\
-   			hello.com bs.com bpb.com ls.com help.com
+   			hello.com bs.com bpb.com ls.com help.com\
+			box.com ouch.com clock.com
 
 	mount -o loop $(BUILD_DIR)/disk.img disk/
 
@@ -71,6 +73,9 @@ run: qemu
 
 bochs:
 	$(BOCHS) $(BOCHSFLAGS)
+
+build_counter:
+	g++ counter.cpp -o counter
 
 clean:
 	-rm -rf $(BUILD_DIR)
