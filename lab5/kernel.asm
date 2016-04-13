@@ -55,8 +55,8 @@ _start:
 
 	mov ax, PCB_SEGMENT
 	mov es, ax
-	mov ax, 1
-	mov [es:_STATE_OFFSET], ax; 设置Shell为运行态
+	mov al, 1
+	mov byte [es:_STATE_OFFSET], al; 设置Shell为运行态
 	
 	;SetTimer
 	mov al,34h
@@ -115,7 +115,6 @@ WKCNINT09H:
 
 WKCNINT20H:
 
-	cli
 	push es
 	push dx
 	push bx
@@ -123,37 +122,21 @@ WKCNINT20H:
 
 	mov ax, cs
 	mov es, ax
+	mov ax, 0
+	mov [es:ShellMode], ax
 	mov ax, [es:RunID]
-	dec word [es:RunNum]
 	mov bx, PCBSize
 	mul bx
 	mov bx, ax
 	mov ax, PCB_SEGMENT
 	mov es, ax
-	mov ax, 0
-	mov [es:(bx + _STATE_OFFSET)], ax
+	mov al, 4
+	mov byte[es:(bx + _STATE_OFFSET)], al
 	pop ax
 	pop bx
 	pop dx
 	pop es
 	sti
-
-	iret
-
-	;发送程序中止信号给内核
-	push si
-	push es
-	push ax
-	mov ax, 0x00
-	mov es, ax
-	mov ax, 0x7c00
-	mov si, ax
-	mov ax, 1
-	mov [es:si], ax
-	pop ax
-	pop es
-	pop si
-	iret
 
 WKCNINTTimer:
 	cli
@@ -214,17 +197,17 @@ WKCNINTTimer:
 	;进程调度
 	;ax 是将要运行的进程id
 	;可用寄存器, ax,bx
-	mov ax, [ds:ShellMode]
-	cmp ax, 0
-	je UseShell
+	;mov ax, [ds:ShellMode]
+	;cmp ax, 0
+	;je UseShell
 	;运行用户程序
 	mov ax, word [ds:RunID]
 	mov bx, word [ds:MaxRunNum]
 	mov cx, PCBSize
+
 	FindUserProg:
 	inc ax
 	cmp ax, bx
-
 	jb MayExUserProg
 	; 越界了
 	mov ax, 0
@@ -234,8 +217,14 @@ WKCNINTTimer:
 	mul cx
 	mov si, ax
 	pop ax
-	cmp word [es:(si + _STATE_OFFSET)], 1
+	cmp byte [es:(si + _STATE_OFFSET)], 1
 	je GoodUserProg
+	cmp byte [es:(si + _STATE_OFFSET)], 4; Dead
+	jne FindUserProg
+	;Dead
+	mov dl, 0
+	mov byte [es:(si + _STATE_OFFSET)], dl
+	dec word [ds:RunNum]
 	jmp FindUserProg
 	UseShell:
 	GoodUserProg:
@@ -318,7 +307,7 @@ WritePCB:
 		mul cx
 		mov bx, ax
 		pop ax
-		cmp word [es:(bx + _STATE_OFFSET)], 0
+		cmp byte [es:(bx + _STATE_OFFSET)], 0
 		je FINDED_PCB_POS
 	jmp FIND_PCB_POS
 
@@ -342,8 +331,8 @@ WritePCB:
 	;分配进程ID
 	mov ax, [ProcessIDAssigner]
 	mov [es:(bx + _ID_OFFSET)], ax
-	mov ax, 1
-	mov [es:(bx + _STATE_OFFSET)], ax; 设置为运行态
+	mov al, 1
+	mov byte [es:(bx + _STATE_OFFSET)], al; 设置为运行态
 	inc word[ProcessIDAssigner]
 	inc word[RunNum]
 

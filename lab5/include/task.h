@@ -35,34 +35,51 @@ struct Processes{
 const uint16_t PCBSize = sizeof(struct Processes);
 
 enum TASK_STATE{
-	EMPTY, RUNNING, SUSPEND
+	T_EMPTY, T_RUNNING, T_SUSPEND, T_TEMP, T_DEAD = 4
 };
 
 Processes _p;
 
 __attribute__((regparm(2)))
-void SetTaskState(uint16_t id, uint16_t state){
-	uint16_t offset = id * PCBSize + ((char*)&_p.FLAGS - (char*)&_p);
+void SetTaskState(uint8_t id, uint8_t state){
+	uint16_t offset = id * PCBSize + ((char*)&_p.STATE - (char*)&_p);
 	asm volatile(
 			"push es;"
 			"mov es, dx;"
-			"mov es:[bx], ax;"
+			"mov es:[bx], al;"
 			"pop es;"
 			:
 			:"a"(state),"b"(offset),"d"(PCB_SEGMENT)
 			);
 }
 
+__attribute__((regparm(1)))
+uint8_t GetTaskState(uint8_t id){
+	uint16_t offset = id * PCBSize + ((char*)&_p.STATE - (char*)&_p);
+	uint8_t state;
+	asm volatile(
+			"push es;"
+			"mov es, dx;"
+			"mov dl, es:[bx];"
+			"pop es;"
+			:"=d"(state)
+			:"b"(offset),"d"(PCB_SEGMENT)
+			);
+	return state;
+}
+
 void KillAll(){
 	for (int i = 1;i < MaxRunNum;++i){
-		SetTaskState(i,EMPTY);
+		SetTaskState(i,T_DEAD);
 	}
 }
 
-__attribute__((regparm(1)))
-void SetTaskAll(uint16_t state){
+__attribute__((regparm(2)))
+void SetAllTask(uint8_t toState,uint8_t fromState){
 	for (int i = 1;i < MaxRunNum;++i){
-		SetTaskState(i,state);
+		if (GetTaskState(i) == fromState){
+			SetTaskState(i, toState);
+		}
 	}
 }
 

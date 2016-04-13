@@ -26,8 +26,8 @@ int batchSize = 0;
 
 extern "C" void WritePCB(uint16_t addr);
 extern "C" uint16_t ShellMode;
-extern "C" uint16_t RunNum;
-extern "C" uint16_t PROG_SEGMENT;
+extern "C" const uint16_t RunNum;
+extern "C" const uint16_t PROG_SEGMENT;
 extern "C" uint8_t INT09H_FLAG;
 
 uint16_t PROG_SEGMENT_S = 0;
@@ -67,6 +67,7 @@ int RunProg(int i){
 	char filename[12] = "WKCN1   COM";
 	filename[4] = i + '0';
 	cls();
+	SetAllTask(T_RUNNING, T_SUSPEND);
 	return RunProg(filename);
 }
 
@@ -116,11 +117,6 @@ bool IsNum(int i){
 	return true;
 }
 
-void killall(){
-	KillAll();
-	RunNum = 1;
-}
-
 void Execute(){  
 	if (bufSize <= 0)return;
 	batchSize = 0;
@@ -163,12 +159,13 @@ void Execute(){
 	}else if (CommandMatch("r")){
 		if(RunNum > 1){
 			ShellMode = 1;
+			SetAllTask(T_RUNNING,T_SUSPEND);
 			cls();
 		}else{
 			PrintInfo(NOPROG_INFO, RED);
 		}
 	}else if(CommandMatch("killall")){
-		killall();
+		KillAll();
 	}else if (IsNum(0)){
 		for (int k = 0;k < parSize && buf[k];++k){
 			char c = buf[k];
@@ -242,13 +239,14 @@ int main(){
 				ShellMode = 0;
 				if (key == KEY_CTRL_Z)//Ctrl + Z
 				{
-					//KillProg(RunID);
-					killall();
+					KillAll();
+				}else{
+					SetAllTask(T_SUSPEND,T_RUNNING);
 				}
 				cls();
 			}
 			if (NeedRetnShell()){
-				killall();
+				KillAll();
 			}
 			if (RunNum == 1){
 				ShellMode = 0;
