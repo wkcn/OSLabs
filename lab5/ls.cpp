@@ -81,7 +81,7 @@ int main(){
 			if (e.DIR_Name[10] == 0)continue;
 			if (first){
 				first = false;
-				PrintStr("Filename    Size  Date       Time(UTC+8) Clusters",LBLUE);
+				PrintStr("Filename    Size  Date        Time(UTC+8) Clusters",LBLUE);
 				PrintStr(NEWLINE);
 			}
 			//Print Name

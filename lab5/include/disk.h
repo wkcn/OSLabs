@@ -62,16 +62,13 @@ void ReadFloppy(uint16_t sectorID, uint8_t sectorNum, void *data){
 	uint8_t ah = 2; // 功能号
 	uint8_t al = sectorNum; // 读扇区数
 	asm volatile(
-			"pushf;"
 			"push es;"
 			"push ax;"
 			"mov ax, ds;"
 			"mov es, ax;"
 			"pop ax;"
-			"sti;"
 			"int 0x13;"
 			"pop es;"
-			"popf;"
 			:
 			:"a"((ah<<8)|al),"b"(data),"c"((ch<<8)|cl),"d"((dh<<8)|dl)	
 			);

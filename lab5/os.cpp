@@ -24,9 +24,9 @@ int batchID = 0;
 int batchSize = 0;
 
 
-extern "C" void WritePCB(uint16_t addr);
+//extern "C" void WritePCB(uint16_t addr);
 extern "C" uint16_t ShellMode;
-extern "C" const uint16_t RunNum;
+extern "C" uint16_t RunNum;
 extern "C" const uint16_t PROG_SEGMENT;
 extern "C" uint8_t INT09H_FLAG;
 
@@ -58,12 +58,33 @@ int RunProg(char *filename){
 			"pop si;"
 			"pop es;"
 			);
-	WritePCB(addrseg);
+	//WritePCB(addrseg);
+	uint8_t pcbID = FindEmptyPCB();
+	if (!pcbID)return 0;
+	_p.ID = pcbID; 
+	_p.CS = addrseg;
+	_p.DS = addrseg;
+	_p.SS = addrseg;
+	_p.IP = 0x100;
+	_p.SP = 0x100 - 4;
+	_p.FLAGS = 512;
+	_p.STATE = T_READY;
+	_p.SIZE = si;
+	int ni = 0;
+	for (int i = 0;i < 8 && filename[i] != ' ';++i)_p.NAME[ni++] = filename[i];
+	_p.NAME[ni++] = '.';
+	for (int i = 8;i < 11 && filename[i] != ' ';++i)_p.NAME[ni++] = filename[i];
+	WritePCB(pcbID);
+	++RunNum;
 	return si;
 }
 
 __attribute__((regparm(1)))
 int RunProg(int i){
+	if (i == 5){
+		char f[12] = "KAN     COM";
+		return RunProg(f);
+	}
 	char filename[12] = "WKCN1   COM";
 	filename[4] = i + '0';
 	cls();
@@ -77,6 +98,7 @@ void top(){
 	PrintNum(RunNum - 1,WHITE);
 	PrintStr(" User Progresses are running :-)",WHITE);
 	PrintStr(NEWLINE,WHITE);
+	Top();
 }
 
 
@@ -126,6 +148,8 @@ void Execute(){
 		int y = c - '0';
 		if (y >= 1 && y <= 5){
 			batchList[batchSize++] = y;
+		}else{
+			if (c != ' ')break;
 		}
 	}
 	if (batchSize == 1){
@@ -147,9 +171,18 @@ void Execute(){
 		if (buf[j] == ' ')buf[j] = 0;
 		par[i][1] = j;
 		if (par[i][1] <= par[i][0])break;
-		i++;
+		++j;
+		++i;
 		parSize = i;
 	}
+	/*
+	for (int i = 0;i < parSize;++i){
+		for (int j = par[i][0];j<par[i][1];++j){
+			PrintChar(buf[j],YELLOW);
+		}
+		PrintStr(NEWLINE);
+	}
+	*/
 	if (CommandMatch("uname")){
 		PrintInfo(OS_INFO,WHITE);
 	}else if (CommandMatch("top")){
@@ -166,6 +199,8 @@ void Execute(){
 		}
 	}else if(CommandMatch("killall")){
 		KillAll();
+	}else if(CommandMatch("k") || CommandMatch("kill")){
+		KillTask(GetNum(1));
 	}else if (IsNum(0)){
 		for (int k = 0;k < parSize && buf[k];++k){
 			char c = buf[k];
@@ -237,8 +272,7 @@ int main(){
 			//ShellMode = 1时, 切换到程序执行
 			if (key == KEY_CTRL_Z || key == KEY_ESC){
 				ShellMode = 0;
-				if (key == KEY_CTRL_Z)//Ctrl + Z
-				{
+				if (key == KEY_CTRL_Z){
 					KillAll();
 				}else{
 					SetAllTask(T_SUSPEND,T_RUNNING);

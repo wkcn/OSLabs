@@ -6,7 +6,6 @@ BITS 16
 [global GetKey]
 [global RunNum]
 [global PROG_SEGMENT]
-[global WritePCB]
 
 [global INT09H_FLAG]
 
@@ -136,7 +135,8 @@ WKCNINT20H:
 	pop bx
 	pop dx
 	pop es
-	sti
+
+	iret
 
 WKCNINTTimer:
 	cli
@@ -197,9 +197,6 @@ WKCNINTTimer:
 	;进程调度
 	;ax 是将要运行的进程id
 	;可用寄存器, ax,bx
-	;mov ax, [ds:ShellMode]
-	;cmp ax, 0
-	;je UseShell
 	;运行用户程序
 	mov ax, word [ds:RunID]
 	mov bx, word [ds:MaxRunNum]
@@ -211,14 +208,24 @@ WKCNINTTimer:
 	jb MayExUserProg
 	; 越界了
 	mov ax, 0
-	jmp UseShell
+	jmp GoodUserProg
+
 	MayExUserProg:
 	push ax
 	mul cx
 	mov si, ax
 	pop ax
-	cmp byte [es:(si + _STATE_OFFSET)], 1
+	cmp byte [es:(si + _STATE_OFFSET)], 1; Running
 	je GoodUserProg
+
+	cmp byte [es:(si + _STATE_OFFSET)], 3; Ready
+	jne DEAD_JUDGE
+	mov dl, 1
+	mov byte [es:(si + _STATE_OFFSET)], dl
+	;inc word [ds:RunNum]
+	jmp GoodUserProg
+
+	DEAD_JUDGE:
 	cmp byte [es:(si + _STATE_OFFSET)], 4; Dead
 	jne FindUserProg
 	;Dead
@@ -226,7 +233,7 @@ WKCNINTTimer:
 	mov byte [es:(si + _STATE_OFFSET)], dl
 	dec word [ds:RunNum]
 	jmp FindUserProg
-	UseShell:
+
 	GoodUserProg:
 	mov word[ds:RunID], ax
 
@@ -280,74 +287,6 @@ LOAD_PCB:
 
 	iret
 
-WritePCB:
-	cli
-	push bp
-	push ds
-	push es
-	push dx
-	push cx
-	push bx
-	push ax
-
-	;开始计算PCB位置
-	mov ax, cs
-	mov ds, ax
-
-	mov bx, PCB_SEGMENT
-	mov es, bx
-
-	
-	mov ax, 0
-	mov cx, PCBSize
-
-	FIND_PCB_POS:
-		inc ax
-		push ax
-		mul cx
-		mov bx, ax
-		pop ax
-		cmp byte [es:(bx + _STATE_OFFSET)], 0
-		je FINDED_PCB_POS
-	jmp FIND_PCB_POS
-
-	FINDED_PCB_POS:
-	;bx = new progress PCB
-	mov bp, sp
-	mov cx, [ss:(bp + 2 + 2 + 2 * 7)]
-	;cx = segment addr
-	;es = kernel segment
-	mov [es:(bx + _CS_OFFSET)], cx
-	mov [es:(bx + _DS_OFFSET)], cx
-	mov [es:(bx + _SS_OFFSET)], cx
-	mov ax, UserProgramOffset
-	mov [es:(bx + _IP_OFFSET)], ax
-	sub ax, 4
-	;mov ax, 0xFFFF; 从0xFFFF减
-	;需要os.cpp配合
-	mov [es:(bx + _SP_OFFSET)], ax
-	mov ax, 512
-	mov [es:(bx + _FLAGS_OFFSET)], ax
-	;分配进程ID
-	mov ax, [ProcessIDAssigner]
-	mov [es:(bx + _ID_OFFSET)], ax
-	mov al, 1
-	mov byte [es:(bx + _STATE_OFFSET)], al; 设置为运行态
-	inc word[ProcessIDAssigner]
-	inc word[RunNum]
-
-	pop ax
-	pop bx
-	pop cx
-	pop dx
-	pop es
-	pop ds
-	pop bp
-	sti
-
-	o32 ret
-
-
 %macro SetOffset 1
 	%1_OFFSET equ (%1 - Processes)
 %endmacro
@@ -364,6 +303,7 @@ PCBCONST:
 	PCBSize equ FirstProcessEnd - Processes
 	SetOffset _ID
 	SetOffset _NAME
+	SetOffset _SIZE
 	SetOffset _STATE
 	SetOffset _ES
 	SetOffset _DS
@@ -391,6 +331,7 @@ Processes:
 	_ID db 0
 	_STATE db 0 ; 结束态0, 运行态1
 	_NAME db "0123456789ABCDEF" ; 16 bytes
+	_SIZE dw 0
 	_ES dw 0
 	_DS dw 0
 	_DI dw 0

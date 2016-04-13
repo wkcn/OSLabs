@@ -2,6 +2,7 @@
 #define _TASK_H_
 
 #include <stdint.h>
+#include "io.h"
 
 const uint16_t PCB_SEGMENT = 0x3000;
 const uint16_t MaxRunNum = 16;
@@ -16,6 +17,7 @@ struct Processes{
 	db ID;
 	db STATE;
 	db NAME[16];
+	dw SIZE;
 	dw ES;
 	dw DS;
 	dw DI;
@@ -35,7 +37,7 @@ struct Processes{
 const uint16_t PCBSize = sizeof(struct Processes);
 
 enum TASK_STATE{
-	T_EMPTY, T_RUNNING, T_SUSPEND, T_TEMP, T_DEAD = 4
+	T_EMPTY, T_RUNNING, T_SUSPEND, T_READY, T_DEAD = 4
 };
 
 Processes _p;
@@ -69,8 +71,11 @@ uint8_t GetTaskState(uint8_t id){
 }
 
 void KillAll(){
-	for (int i = 1;i < MaxRunNum;++i){
-		SetTaskState(i,T_DEAD);
+	for (uint8_t i = 1;i < MaxRunNum;++i){
+		uint8_t state = GetTaskState(i);
+		if (state != T_EMPTY){
+			SetTaskState(i, T_DEAD);
+		}
 	}
 }
 
@@ -83,4 +88,95 @@ void SetAllTask(uint8_t toState,uint8_t fromState){
 	}
 }
 
+uint8_t FindEmptyPCB(){
+	for (int i = 1;i < MaxRunNum;++i){
+		if (GetTaskState(i) == T_EMPTY)return i;
+	}
+	return 0;
+}
+
+__attribute__((regparm(1)))
+void LoadPCB(uint8_t id){
+	uint16_t PCBOffset = PCBSize * id;
+	char ch;
+	asm volatile("push es;mov es, ax;"::"a"(PCB_SEGMENT));
+	for (int i = 0;i < PCBSize;++i){
+		asm volatile(
+				"mov al, es:[bx];"
+				:"=a"(ch)
+				:"b"(PCBOffset + i)
+				);
+		*(((char*)&_p) + i) = ch;
+	}
+	asm volatile("pop es;");
+}
+
+__attribute__((regparm(1)))
+void WritePCB(uint8_t id){
+	uint16_t PCBOffset = PCBSize * id;
+	asm volatile("push es;mov es, ax;"::"a"(PCB_SEGMENT));
+	for (int i = 0;i < PCBSize;++i){
+		asm volatile(
+				"mov es:[bx], al;"
+				:
+				:"a"(*(((char*)&_p) + i)),"b"(PCBOffset + i)
+				);
+	}
+	asm volatile("pop es;");
+}
+
+__attribute__((regparm(1)))
+void KillTask(uint8_t id){
+	if (id != 0 && GetTaskState(id) != T_EMPTY){
+		SetTaskState(id, T_DEAD);
+		PrintStr("Kill Task Success!\r\n");
+	}else{
+		//PrintNum(id);
+		PrintStr("Kill Task Fail!\r\n",RED);
+	}
+}
+void Top(){
+	PrintStr("PID Name         Size    CS      IP      State\r\n", LBLUE);
+	for (int i = 0;i < MaxRunNum;++i){
+		LoadPCB(i);
+		if (_p.STATE == T_EMPTY)continue;
+		int count = 0;
+		count = PrintNum(_p.ID);
+		for (int i = count;i < 4;++i)PrintChar(' ');
+		if (i == 0){
+			PrintStr("Mirai-Shell", CYAN);
+		}else{
+			for (count = 0;count < 11 && _p.NAME[count] != ' ';++count){
+				PrintChar(_p.NAME[count], CYAN);
+			}
+		}
+		PrintStr("  ");
+		count = PrintNum(_p.SIZE);
+		for (int i = count;i < 8;++i)PrintChar(' ');
+		//count = PrintNum(_p.CS);
+		//for (int i = count;i < 8;++i)PrintChar(' ');
+		PrintStr("0x");
+		PrintHex((_p.CS >> 8) & 0xFF);
+		PrintHex((_p.CS) & 0xFF);
+		PrintStr("  ");
+
+		PrintStr("0x");
+		PrintHex((_p.IP >> 8) & 0xFF);
+		PrintHex((_p.IP) & 0xFF);
+		PrintStr("  ");
+
+		switch (_p.STATE){
+			case T_RUNNING:
+				PrintStr("Running",LGREEN);
+				break;
+			case T_READY:
+				PrintStr("Ready",LRED);
+				break;
+			case T_SUSPEND:
+				PrintStr("Suspend",LBLUE);
+				break;
+		}
+		PrintStr(NEWLINE);
+	}
+}
 #endif
