@@ -74,6 +74,7 @@ int RunProg(char *filename){
 	for (int i = 0;i < 8 && filename[i] != ' ';++i)_p.NAME[ni++] = filename[i];
 	_p.NAME[ni++] = '.';
 	for (int i = 8;i < 11 && filename[i] != ' ';++i)_p.NAME[ni++] = filename[i];
+	for (;ni<16;++ni)_p.NAME[ni] = 0;
 	WritePCB(pcbID);
 	++RunNum;
 	return si;
@@ -93,10 +94,9 @@ int RunProg(int i){
 }
 
 void top(){
-	//Sorry, I have no time to finish viewing all programs pid :-(
-	//I will finish it in the future~
-	PrintNum(RunNum - 1,WHITE);
-	PrintStr(" User Progresses are running :-)",WHITE);
+	PrintStr(" There are ");
+	PrintNum(RunNum,WHITE);
+	PrintStr(" Progresses :-)",WHITE);
 	PrintStr(NEWLINE,WHITE);
 	Top();
 }
@@ -199,8 +199,13 @@ void Execute(){
 		}
 	}else if(CommandMatch("killall")){
 		KillAll();
+		cls();
 	}else if(CommandMatch("k") || CommandMatch("kill")){
-		KillTask(GetNum(1));
+		for(int q=1;q<parSize;++q)KillTask(GetNum(q));
+	}else if(CommandMatch("wake")){
+		for(int q=1;q<parSize;++q)SetTaskState(GetNum(q),T_RUNNING,T_SUSPEND);
+	}else if(CommandMatch("suspend")){
+		for(int q=1;q<parSize;++q)SetTaskState(GetNum(q),T_SUSPEND,T_RUNNING);
 	}else if (IsNum(0)){
 		for (int k = 0;k < parSize && buf[k];++k){
 			char c = buf[k];

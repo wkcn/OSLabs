@@ -135,12 +135,19 @@ void KillTask(uint8_t id){
 		PrintStr("Kill Task Fail!\r\n",RED);
 	}
 }
+
+__attribute__((regparm(3)))
+void SetTaskState(uint8_t id, uint8_t toState, uint8_t fromState){
+	if (!id)return;
+	if (GetTaskState(id) == fromState)SetTaskState(id, toState);
+}	
 void Top(){
-	PrintStr("PID Name         Size    CS      IP      State\r\n", LBLUE);
+	PrintStr(" PID Name         Size    CS      IP      State\r\n", LBLUE);
 	for (int i = 0;i < MaxRunNum;++i){
 		LoadPCB(i);
 		if (_p.STATE == T_EMPTY)continue;
 		int count = 0;
+		PrintChar(' ');
 		count = PrintNum(_p.ID);
 		for (int i = count;i < 4;++i)PrintChar(' ');
 		if (i == 0){
