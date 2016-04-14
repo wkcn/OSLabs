@@ -73,7 +73,9 @@ uint16_t clock(){
 __attribute__((regparm(1)))
 void sleep(uint16_t seconds){
 	uint16_t old = clock();
-	while(clock() - old <= seconds);
+	uint16_t j = clock() - old;
+	//10 seconds 是为了避免Bug
+	while(j <= seconds || j >= 10)j = clock() - old;
 }
 
 typedef char db;

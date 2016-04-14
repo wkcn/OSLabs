@@ -7,7 +7,7 @@ asm(".code16gcc\n");
 #include "include/keyboard.h"
 #include "include/task.h"
 #include "include/version.h"
-//#include "include/interrupt.h"
+#include "include/interrupt.h"
 
 const char *OS_INFO = "MiraiOS 0.2";
 const char *PROMPT_INFO = "wkcn > ";
@@ -30,6 +30,7 @@ extern "C" uint16_t ShellMode;
 extern "C" uint16_t RunNum;
 extern "C" const uint16_t PROG_SEGMENT;
 extern "C" const uint8_t INT09H_FLAG;
+extern "C" uint16_t INT_INFO; //中断信号 
 
 uint16_t PROG_SEGMENT_S = 0;
 
@@ -126,9 +127,24 @@ int GetNum(int i){
 	int j = par[i][0];
 	int k = par[i][1];
 	int res = 0;
-	for (;j<k;++j){
-		char c = buf[j];
-		res = res * 10 + c - '0';
+	if (buf[k-1] == 'h' || buf[k-1] == 'H'){
+		k--;
+		for (;j<k;++j){
+			char c = buf[j];
+			res *= 16;
+			if (c >= '0' && c <= '9'){
+				res += c - '0';
+			}else if (c >= 'A' && c <= 'F'){
+				res += c - 'A' + 10;
+			}else if (c >= 'a' && c <= 'f'){
+				res += c - 'a' + 10;
+			}
+		}
+	}else{
+		for (;j<k;++j){
+			char c = buf[j];
+			res = res * 10 + c - '0';
+		}
 	}
 	return res;
 }
@@ -138,9 +154,14 @@ bool IsNum(int i){
 	int j = par[i][0];
 	int k = par[i][1];
 	if (j >= k)return false;
+	bool hex = false;
+	if (buf[k-1] == 'h' || buf[k-1] == 'H'){
+		hex = true;
+		k--;
+	}
 	for (;j<k;++j){
 		char c = buf[j];
-		if (c < '0' || c > '9')return false;
+		if (c < '0' || c > '9' || (hex && ((c >='a' && c<='f') || (c >= 'A' && c <= 'F'))))return false;
 	}
 	return true;
 }
@@ -202,6 +223,12 @@ void Execute(){
 		for(int q=1;q<parSize;++q)KillTask(GetNum(q));
 	}else if(CommandMatch("wake")){
 		for(int q=1;q<parSize;++q)SetTaskState(GetNum(q),T_RUNNING,T_SUSPEND);
+	}else if(CommandMatch("int")){
+		uint16_t id = GetNum(1);
+		if (!(id >= 0x33 && id <= 0x36)){
+			PrintStr("Sorry, You are allowed to use int 33h to int 36h!\r\n",RED);
+		}else
+			ExecuteINT(id);
 	}else if(CommandMatch("suspend")){
 		for(int q=1;q<parSize;++q)SetTaskState(GetNum(q),T_SUSPEND,T_RUNNING);
 	}else if (IsNum(0)){
@@ -248,12 +275,34 @@ bool NeedRetnShell(){
 	return (a && ShellMode);
 }
 
+/*
+void _int_33h(){RunProg(1);}
+void _int_34h(){RunProg(2);}
+void _int_35h(){RunProg(3);}
+void _int_36h(){RunProg(4);}
+extern "C" void int_33h();
+extern "C" void int_34h();
+extern "C" void int_35h();
+extern "C" void int_36h();
+*/
+
+void WriteUserINT(){
+	//WriteIVT(0x33,int_33h);
+	//WriteIVT(0x34,int_34h);
+	//WriteIVT(0x35,int_35h);
+	//WriteIVT(0x36,int_36h);
+}
+
 int main(){  
 	cls();
 	uname();
 	DrawText("You can input \'help\' to get more info",1,0,LGREEN);	
 	SetCursor(2,0);
 	while(1){
+		if (INT_INFO >= 1 && INT_INFO <= 5){
+			RunProg(INT_INFO);
+			INT_INFO = 0;
+		}
 		//Tab
 		uint16_t key = getkey();
 		if (key == KEY_CTRL_C){

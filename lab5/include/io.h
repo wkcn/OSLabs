@@ -152,6 +152,11 @@ void PrintHex(char num, uint16_t color = WHITE){
 	PrintChar(ch[(num>>4)&0xF],color);
 	PrintChar(ch[(num)&0xF],color);
 }
+__attribute__((regparm(1)))
+void PrintHex2(uint16_t num, uint16_t color = WHITE){
+	PrintHex(char((num >> 8) & 0xFF),color);
+	PrintHex(char((num) & 0xFF),color);
+}
 //class ostream{
 //public:
 //	osi color;

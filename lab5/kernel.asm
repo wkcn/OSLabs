@@ -7,6 +7,7 @@ BITS 16
 [global PROG_SEGMENT]
 
 [global INT09H_FLAG]
+[global INT_INFO]
 
 ;16k = 0x4000
 ;4M = 0x4 0 0000
@@ -48,6 +49,11 @@ UpdateTimes equ 20
 	WriteIVT 09h,WKCNINT09H
 	WriteIVT 20h,WKCNINT20H
 
+	WriteIVT 33h,_INT_33h
+	WriteIVT 34h,_INT_34h
+	WriteIVT 35h,_INT_35h
+	WriteIVT 36h,_INT_36h
+
 
 _start:
 
@@ -70,6 +76,31 @@ _start:
 	mov es,ax
 
 	jmp main
+
+
+%macro IVT_INFO 2
+; 中断号, 中断信号量
+_INT_%1:
+	push es
+	push ax
+	mov ax, cs
+	mov es, ax
+	mov ax, %2
+WAIT_INT_INFO_ZERO_%1: 
+	sti
+	cmp word [es:INT_INFO], 0
+	jne WAIT_INT_INFO_ZERO_%1
+
+	mov [es:INT_INFO], ax
+	pop ax
+	pop es
+	iret
+%endmacro
+
+IVT_INFO 33h,1 
+IVT_INFO 34h,2 
+IVT_INFO 35h,3 
+IVT_INFO 36h,4 
 
 %macro SaveReg 1
 	mov ax, %1
@@ -285,6 +316,7 @@ DATA:
 	CX_SAVE dw 0
 	DX_SAVE dw 0
 IVT:
+	INT_INFO dw 0
 	INT09HORG dd 0
 	INT09H_FLAG db 0
 PCBCONST:
