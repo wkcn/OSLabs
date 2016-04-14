@@ -3,7 +3,7 @@ DISK_DIR = disk
 KITS_DIR = kits
 IMAGE_NAME=disk.img
 CC = g++
-CFLAGS = -Iinclude -c -m16 -march=i386 -masm=intel -nostdlib -ffreestanding -mpreferred-stack-boundary=2 -lgcc -shared -std=c++11 -Wno-int-to-void-pointer-cast
+CFLAGS = -Iinclude -c -m16 -march=i386 -masm=intel -nostdlib -ffreestanding -mpreferred-stack-boundary=2 -lgcc -shared -std=c++11 -Wno-int-to-void-pointer-cast -fpermissive
 
 AS = nasm
 ASFLAGS =
@@ -36,7 +36,7 @@ write_knl: kernel.bin
 
 build_progs: wkcn1.com wkcn2.com wkcn3.com wkcn4.com kan.com\
    			hello.com bs.com bpb.com ls.com help.com\
-			box.com ouch.com clock.com
+			box.com ouch.com clock.com inttest.com
 
 	mount -o loop $(BUILD_DIR)/disk.img disk/
 
@@ -49,8 +49,8 @@ build_progs: wkcn1.com wkcn2.com wkcn3.com wkcn4.com kan.com\
 loadknl.bin: loadknl.asm
 	$(AS) $(ASFLAGS) -f bin $^ -o $(BUILD_DIR)/$@
 
-kernel.bin: kernel.o os.o
-	$(LD) $(LDFLAGS) -Ttext 0x7e00 --oformat binary $(BUILD_DIR)/kernel.o $(BUILD_DIR)/os.o -o $(BUILD_DIR)/$@
+kernel.bin: kernel.o os.o int_wrapper.o
+	$(LD) $(LDFLAGS) -Ttext 0x7e00 --oformat binary $(BUILD_DIR)/kernel.o $(BUILD_DIR)/os.o $(BUILD_DIR)/int_wrapper.o -o $(BUILD_DIR)/$@
 
 
 %.o: %.c

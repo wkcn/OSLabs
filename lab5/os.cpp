@@ -302,6 +302,7 @@ int main(){
 		if (INT_INFO >= 1 && INT_INFO <= 5){
 			RunProg(INT_INFO);
 			INT_INFO = 0;
+			ShellMode = 1;
 		}
 		//Tab
 		uint16_t key = getkey();
