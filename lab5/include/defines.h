@@ -6,6 +6,26 @@
 #define SCREEN_WIDTH 80
 #define SCREEN_HEIGHT 25
 
+uint16_t PCB_SEGMENT;
+uint16_t PROG_SEGMENT;
+uint16_t MSG_SEGMENT;
+
+void INIT_SEGMENT(){ 
+	asm volatile("int 0x21;"
+			:"=a"(PCB_SEGMENT)
+			:"a"(0x0300)
+			);
+
+	asm volatile("int 0x21;"
+			:"=a"(PROG_SEGMENT)
+			:"a"(0x0400)
+			);
+
+	asm volatile("int 0x21;"
+			:"=a"(MSG_SEGMENT)
+			:"a"(0x0500)
+			);
+}
 
 const char *NEWLINE = "\r\n";
 
@@ -71,12 +91,12 @@ uint16_t clock(){
 }
 
 __attribute__((regparm(1)))
-void sleep(uint16_t seconds){
-	uint16_t old = clock();
-	uint16_t j = clock() - old;
-	//10 seconds 是为了避免Bug
-	while(j <= seconds || j >= 10)j = clock() - old;
-}
+	void sleep(uint16_t seconds){
+		uint16_t old = clock();
+		uint16_t j = clock() - old;
+		//10 seconds 是为了避免Bug
+		while(j <= seconds || j >= 10)j = clock() - old;
+	}
 
 typedef char db;
 typedef uint16_t dw;

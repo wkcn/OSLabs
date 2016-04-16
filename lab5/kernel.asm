@@ -4,15 +4,15 @@ BITS 16
 
 [global ShellMode]
 [global RunNum]
-[global PROG_SEGMENT]
 
 [global INT09H_FLAG]
 [global INT_INFO]
 
 ;16k = 0x4000
 ;4M = 0x4 0 0000
-PCB_SEGMENT equ 3000h
-PROG_SEGMENT_ equ 4000h
+MSG_SEGMENT equ 3000h
+PCB_SEGMENT equ 4000h
+PROG_SEGMENT equ 5000h
 UserProgramOffset equ 100h
 UpdateTimes equ 20
 
@@ -46,8 +46,10 @@ UpdateTimes equ 20
 	mov word [INT09HORG + 2], ax
 
 	WriteIVT 08h,WKCNINTTimer ; Timer Interupt
-	WriteIVT 09h,WKCNINT09H
-	WriteIVT 20h,WKCNINT20H
+	WriteIVT 09h,WKCNINTKeyBoard
+	WriteIVT 20h,WKCNINT20H ; 进程退出(为了简单, 这个中断只有一个功能)
+	WriteIVT 21h,WKCNINT21H ; 进程功能
+	WriteIVT 22h,WKCNINT22H ; 进程通信
 
 	WriteIVT 33h,_INT_33h
 	WriteIVT 34h,_INT_34h
@@ -113,7 +115,7 @@ IVT_INFO 36h,4
 %endmacro
 
 ;键盘中断
-WKCNINT09H:	
+WKCNINTKeyBoard:	
 	push es
 	push ax
 
@@ -155,6 +157,87 @@ WKCNINT20H:
 	pop dx
 	pop es
 
+	iret
+
+WKCNINT21H:
+	;21H中断
+	;AH = 00h, 切换ShellMode到al状态
+	;AH = 01h, 切换进程状态到al
+	;AH = 02h, 得到当前进程ID
+	;AH = 03h, 返回PCB_SEGMENT
+	;AH = 04h, 返回PROG_SEGMENT
+	;AH = 05h, 返回MSG_SEGMENT
+	push es
+	push dx
+	push cx
+	push bx
+	mov bx, cs
+	mov es, bx
+
+	cmp ah, 00h
+	je TabShellMode
+	cmp ah, 01h
+	je TabProgState 
+	cmp ah, 02h
+	je GetRunID
+	cmp ah, 03h
+	je RETN_PCB_S
+	cmp ah, 04h
+	je RETN_PROG_S
+	cmp ah, 05h
+	je RETN_MSG_S
+
+	jmp INT21HEND
+
+	;AH = 00h
+	TabShellMode:
+	mov word[es:ShellMode], ax; 已知ax高位为0
+	jmp INT21HEND
+
+	;AH = 01h
+	TabProgState:
+	mov dl, al
+	mov ax, [es:RunID] 
+	mov bx, PCBSize
+	mul bx
+	mov bx, ax
+	mov ax, PCB_SEGMENT
+	mov es, ax
+	mov byte[es:(bx + _STATE_OFFSET)], dl
+	jmp INT21HEND
+
+	;AH = 02h
+	GetRunID:
+	mov ax, [es:RunID]
+	jmp INT21HEND
+
+	RETN_PCB_S:
+	mov ax, PCB_SEGMENT
+	jmp INT21HEND
+
+	RETN_PROG_S:
+	mov ax, PROG_SEGMENT
+	jmp INT21HEND
+
+	RETN_MSG_S:
+	mov ax, MSG_SEGMENT
+	jmp INT21HEND
+
+	INT21HEND:
+	pop bx
+	pop cx
+	pop dx
+	pop es
+	iret
+
+WKCNINT22H:
+	;22H进程, 进程通信
+	;ax = 00h 读
+	;ax = 01h 写等待
+	;ax = 02h 写不等待
+	;ax = 03h 重新设置
+	;ax = 04h 关闭端口
+	;基地址bx, 缓存大小cx, 端口值dx, 段地址es 
 	iret
 
 WKCNINTTimer:
@@ -343,7 +426,6 @@ ProcessesTable:
 	RunID dw 0 ; default to open shell
 	RunNum dw 1
 	MaxRunNum dw 16
-	PROG_SEGMENT dw PROG_SEGMENT_
 	ShellMode dw 0
 	ProcessIDAssigner dw 1; 进程 ID 分配
 

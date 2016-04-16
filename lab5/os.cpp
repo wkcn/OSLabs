@@ -28,7 +28,6 @@ int batchSize = 0;
 //extern "C" void WritePCB(uint16_t addr);
 extern "C" uint16_t ShellMode;
 extern "C" uint16_t RunNum;
-extern "C" const uint16_t PROG_SEGMENT;
 extern "C" const uint8_t INT09H_FLAG;
 extern "C" uint16_t INT_INFO; //中断信号 
 
@@ -275,30 +274,18 @@ bool NeedRetnShell(){
 	return (a && ShellMode);
 }
 
-/*
-void _int_33h(){RunProg(1);}
-void _int_34h(){RunProg(2);}
-void _int_35h(){RunProg(3);}
-void _int_36h(){RunProg(4);}
-extern "C" void int_33h();
-extern "C" void int_34h();
-extern "C" void int_35h();
-extern "C" void int_36h();
-*/
-
-void int_21h(){
-	PrintStr("haha");
+void int_23h(){
+	PrintStr("I'm an interrupt written by C++", YELLOW);
+	cout << endl;
 	CPP_INT_END;
 }
 
 void WriteUserINT(){
-	WriteIVT(0x21,int_21h);
-	//WriteIVT(0x34,int_34h);
-	//WriteIVT(0x35,int_35h);
-	//WriteIVT(0x36,int_36h);
+	WriteIVT(0x23,int_23h);
 }
 
 int main(){  
+	INIT_SEGMENT();
 	WriteUserINT();
 	cls();
 	uname();

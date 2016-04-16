@@ -1,10 +1,10 @@
 #ifndef _TASK_H_
 #define _TASK_H_
 
+#include "defines.h"
 #include <stdint.h>
 #include "io.h"
 
-const uint16_t PCB_SEGMENT = 0x3000;
 const uint16_t MaxRunNum = 16;
 
 typedef char db;
