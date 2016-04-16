@@ -143,14 +143,14 @@ void SetTaskState(uint8_t id, uint8_t toState, uint8_t fromState){
 }	
 void Top(){
 	PrintStr(" PID Name         Size    CS      IP      State\r\n", LBLUE);
-	for (int i = 0;i < MaxRunNum;++i){
-		LoadPCB(i);
+	for (uint16_t t = 0;t < MaxRunNum;++t){
+		LoadPCB(t);
 		if (_p.STATE == T_EMPTY)continue;
-		int count = 0;
+		uint16_t count = 0;
 		PrintChar(' ');
 		count = PrintNum(_p.ID);
-		for (int i = count;i < 4;++i)PrintChar(' ');
-		if (i == 0){
+		for (uint16_t i = count;i < 4;++i)PrintChar(' ');
+		if (t == 0){
 			PrintStr("Mirai-Shell", CYAN);
 		}else{
 			for (count = 0;count < 11 && _p.NAME[count] != ' ';++count){

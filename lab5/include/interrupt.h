@@ -4,6 +4,10 @@
 #include "io.h"
 //#include <stdint.h>
 
+//一般C++函数, 会首先将ebp入栈, 最终恢复
+//G++编译出来的压栈都是4字节的(32 bits), 但是我们的nasm是16位的:-(
+//16位G++的内嵌汇编的iret操作的是EFLAGS,ECS,EIP; 因此, 我们要将可爱的flags,cs,ip转为32位~
+#define CPP_INT_END asm volatile("sub ebp, 8;mov [ebp],ax;mov ax,[ebp+8];mov [ebp+2],ax;mov ax,[ebp+10];mov [ebp+4],ax;mov ax,[ebp+12];mov [ebp+6],ax;mov ax,[ebp+14];mov [ebp+10],ax;mov ax,[ebp+16];mov [ebp+14],ax;xor ax,ax;mov [ebp+8],ax;mov [ebp+12],ax;mov [ebp+16],ax;mov ax,[ebp];sub sp,6;pop ebp;iret;")
 __attribute__((regparm(3)))
 void WriteIVT(uint16_t id,uint16_t offset,uint16_t cs){
 	asm volatile(
@@ -22,10 +26,7 @@ __attribute__((regparm(2)))
 void WriteIVT(uint16_t id, void (*func)()){
 	uint16_t cs;
 	asm volatile("mov ax, cs;":"=a"(cs));
-	uint16_t *int_ip = (uint16_t*)(id * 4);
-	uint16_t *int_cs = (uint16_t*)(id * 4 + 2);
-	*int_ip = (uint16_t)func;
-	*int_cs = cs;
+	WriteIVT(id,(long)func,cs);
 }
 
 __attribute__((regparm(1)))
@@ -43,6 +44,7 @@ void ExecuteINT(uint16_t id){
 	uint16_t ocs;
 	asm volatile("mov ax, cs;":"=a"(ocs));
 	//不知道为什么, 一定要加下面这一句, 否则崩溃:-(
+	PrintStr("Execute interrupt 0x");
 	PrintHex(id);PrintStr(NEWLINE);
 	char addr[4];
 	*((uint16_t*)(addr)) = ip;

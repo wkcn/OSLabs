@@ -49,8 +49,8 @@ build_progs: wkcn1.com wkcn2.com wkcn3.com wkcn4.com kan.com\
 loadknl.bin: loadknl.asm
 	$(AS) $(ASFLAGS) -f bin $^ -o $(BUILD_DIR)/$@
 
-kernel.bin: kernel.o os.o int_wrapper.o
-	$(LD) $(LDFLAGS) -Ttext 0x7e00 --oformat binary $(BUILD_DIR)/kernel.o $(BUILD_DIR)/os.o $(BUILD_DIR)/int_wrapper.o -o $(BUILD_DIR)/$@
+kernel.bin: kernel.o os.o
+	$(LD) $(LDFLAGS) -Ttext 0x7e00 --oformat binary $(BUILD_DIR)/kernel.o $(BUILD_DIR)/os.o -o $(BUILD_DIR)/$@
 
 
 %.o: %.c

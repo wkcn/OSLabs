@@ -225,8 +225,8 @@ void Execute(){
 		for(int q=1;q<parSize;++q)SetTaskState(GetNum(q),T_RUNNING,T_SUSPEND);
 	}else if(CommandMatch("int")){
 		uint16_t id = GetNum(1);
-		if (!(id >= 0x33 && id <= 0x36)){
-			PrintStr("Sorry, You are allowed to use int 33h to int 36h!\r\n",RED);
+		if (false &&  !(id >= 0x33 && id <= 0x36)){
+			PrintStr("Sorry, You are allowed to use int 33 to int 36!\r\n",RED);
 		}else
 			ExecuteINT(id);
 	}else if(CommandMatch("suspend")){
@@ -286,14 +286,20 @@ extern "C" void int_35h();
 extern "C" void int_36h();
 */
 
+void int_21h(){
+	PrintStr("haha");
+	CPP_INT_END;
+}
+
 void WriteUserINT(){
-	//WriteIVT(0x33,int_33h);
+	WriteIVT(0x21,int_21h);
 	//WriteIVT(0x34,int_34h);
 	//WriteIVT(0x35,int_35h);
 	//WriteIVT(0x36,int_36h);
 }
 
 int main(){  
+	WriteUserINT();
 	cls();
 	uname();
 	DrawText("You can input \'help\' to get more info",1,0,LGREEN);	

@@ -154,7 +154,7 @@ show:
 end:
 	mov cx, 0xFFFF
 	DELAY:
-		mov ax, 10
+		mov ax, 100
 		DELAY_IN:
 			dec ax
 			cmp ax, 0
