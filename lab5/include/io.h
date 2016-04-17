@@ -164,7 +164,6 @@ void PrintHex2(uint16_t num, uint16_t color = WHITE){
 struct ostream{
 	uint16_t color;
 };
-ostream cout;
 
 #define endl "\n\r"
 __attribute__((regparm(2)))

@@ -83,7 +83,7 @@ void ls(){
 		for (int j = 0;j < 512/32;++j){
 			memcpy(&e,buf + j * 32,32);
 			PrintStr(e.DIR_Name,11);
-			if(e.DIR_Name[1] != 0)cout << endl;
+			if(e.DIR_Name[1] != 0)PrintStr(NEWLINE);
  		}
  	}
 } 

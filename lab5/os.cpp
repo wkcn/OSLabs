@@ -330,7 +330,7 @@ bool NeedRetnShell(){
 
 void int_23h(){
 	PrintStr("I'm an interrupt written by C++", YELLOW);
-	cout << endl;
+	PrintStr(NEWLINE);
 	CPP_INT_END;
 }
 

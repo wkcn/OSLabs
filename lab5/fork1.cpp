@@ -7,8 +7,14 @@ int main(){
 			PrintChar('.');
 		}
 	}else{
-		for (int i = 0;i < 20;++i){
-			PrintChar('o');
+		if (fork() == 0){
+			for (int i = 0;i < 20;++i){
+				PrintChar('o');
+			}
+		}else{
+			for (int i = 0;i < 20;++i){
+				PrintChar('x');
+			}
 		}
 	}
 	PrintStr(NEWLINE);
