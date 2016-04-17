@@ -5,8 +5,6 @@
 #include <stdint.h>
 #include "io.h"
 
-const uint16_t MaxRunNum = 16;
-
 typedef char db;
 typedef uint16_t dw;
 typedef uint32_t dd;

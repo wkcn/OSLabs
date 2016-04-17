@@ -9,6 +9,7 @@
 uint16_t PCB_SEGMENT;
 uint16_t PROG_SEGMENT;
 uint16_t MSG_SEGMENT;
+uint16_t MaxRunNum;
 
 void INIT_SEGMENT(){ 
 	asm volatile("int 0x21;"
@@ -25,7 +26,11 @@ void INIT_SEGMENT(){
 			:"=a"(MSG_SEGMENT)
 			:"a"(0x0500)
 			);
-}
+	asm volatile("int 0x21;"
+			:"=a"(MaxRunNum)
+			:"a"(0x0600)
+			);
+} 
 
 const char *NEWLINE = "\r\n";
 

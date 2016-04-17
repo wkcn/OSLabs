@@ -10,9 +10,10 @@ BITS 16
 
 ;16k = 0x4000
 ;4M = 0x4 0 0000
+MaxRunNum equ 16
 MSG_SEGMENT equ 3000h
-PCB_SEGMENT equ 4000h
-PROG_SEGMENT equ 5000h
+PCB_SEGMENT equ 4000h 
+PROG_SEGMENT equ 5000h 
 UserProgramOffset equ 100h
 UpdateTimes equ 20
 
@@ -167,6 +168,7 @@ WKCNINT21H:
 	;AH = 03h, 返回PCB_SEGMENT
 	;AH = 04h, 返回PROG_SEGMENT
 	;AH = 05h, 返回MSG_SEGMENT
+	;AH = 06h, 返回MaxRunNum
 	push es
 	push dx
 	push cx
@@ -186,6 +188,8 @@ WKCNINT21H:
 	je RETN_PROG_S
 	cmp ah, 05h
 	je RETN_MSG_S
+	cmp ah, 06h
+	je RETN_MAXRUNNUM
 
 	jmp INT21HEND
 
@@ -221,6 +225,10 @@ WKCNINT21H:
 
 	RETN_MSG_S:
 	mov ax, MSG_SEGMENT
+	jmp INT21HEND
+
+	RETN_MAXRUNNUM:
+	mov ax, MaxRunNum
 	jmp INT21HEND
 
 	INT21HEND:
@@ -301,12 +309,11 @@ WKCNINTTimer:
 	;可用寄存器, ax,bx
 	;运行用户程序
 	mov ax, word [ds:RunID]
-	mov bx, word [ds:MaxRunNum]
 	mov cx, PCBSize
 
 	FindUserProg:
 	inc ax
-	cmp ax, bx
+	cmp ax, MaxRunNum
 	jb MayExUserProg
 	; 越界了
 	mov ax, 0
@@ -425,7 +432,6 @@ PCBCONST:
 ProcessesTable:
 	RunID dw 0 ; default to open shell
 	RunNum dw 1
-	MaxRunNum dw 16
 	ShellMode dw 0
 	ProcessIDAssigner dw 1; 进程 ID 分配
 
