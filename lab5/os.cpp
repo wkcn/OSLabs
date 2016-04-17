@@ -8,6 +8,7 @@ asm(".code16gcc\n");
 #include "include/task.h"
 #include "include/version.h"
 #include "include/interrupt.h"
+#include "include/port.h"
 
 const char *OS_INFO = "MiraiOS 0.2";
 const char *PROMPT_INFO = "wkcn > ";
@@ -17,6 +18,8 @@ const char *LS_INFO = "Please Input These Number to Run a Program or more :-)\n\
 
 const uint16_t maxBufSize = 128;
 char buf[maxBufSize]; // 指令流
+const uint16_t talkBufSize = 128;
+char talkBuffer[talkBufSize];
 int bufSize = 0;
 int par[16][2];
 int parSize = 0;
@@ -42,7 +45,8 @@ int RunProg(char *filename){
 	uint16_t addrseg = (PROG_SEGMENT + PROG_SEGMENT_S);
 	int si = LoadFile(filename,offset,addrseg);
 	if (si == 0)return 0;
-	PROG_SEGMENT_S += ((si + 0x100 + (1<<4) - 1) >> 4);
+	uint16_t SSIZE = ((si + 0x100 + (1<<4) - 1) >> 4); 
+	PROG_SEGMENT_S += SSIZE; 
 
 	//设置用户程序运行标志
 	asm volatile(
@@ -71,6 +75,10 @@ int RunProg(char *filename){
 	_p.FLAGS = 512;
 	_p.STATE = T_READY;
 	_p.SIZE = si;
+	_p.SSIZE = SSIZE; 
+	_p.PARENT_ID = 0;
+	_p.SEG = addrseg;
+
 	int ni = 0;
 	for (int i = 0;i < 8 && filename[i] != ' ';++i)_p.NAME[ni++] = filename[i];
 	_p.NAME[ni++] = '.';
@@ -93,6 +101,52 @@ int RunProg(int i){
 	SetAllTask(T_RUNNING, T_SUSPEND);
 	return RunProg(filename);
 }
+void Top(){
+	PrintStr(" PID Name         Size    CS      IP      State\r\n", LBLUE);
+	for (uint16_t t = 0;t < MaxRunNum;++t){
+		LoadPCB(t);
+		if (_p.STATE == T_EMPTY)continue;
+		uint16_t count = 0;
+		PrintChar(' ');
+		count = PrintNum(_p.ID);
+		for (uint16_t i = count;i < 4;++i)PrintChar(' ');
+		if (t == 0){
+			PrintStr("Mirai-Shell", CYAN);
+		}else{
+			for (count = 0;count < 11 && _p.NAME[count] != ' ';++count){
+				PrintChar(_p.NAME[count], CYAN);
+			}
+		}
+		PrintStr("  ");
+		count = PrintNum(_p.SIZE);
+		for (int i = count;i < 8;++i)PrintChar(' ');
+		//count = PrintNum(_p.CS);
+		//for (int i = count;i < 8;++i)PrintChar(' ');
+		PrintStr("0x");
+		PrintHex((_p.CS >> 8) & 0xFF);
+		PrintHex((_p.CS) & 0xFF);
+		PrintStr("  ");
+
+		PrintStr("0x");
+		PrintHex((_p.IP >> 8) & 0xFF);
+		PrintHex((_p.IP) & 0xFF);
+		PrintStr("  ");
+
+		switch (_p.STATE){
+			case T_RUNNING:
+				PrintStr("Running",LGREEN);
+				break;
+			case T_READY:
+				PrintStr("Ready",LRED);
+				break;
+			case T_SUSPEND:
+				PrintStr("Suspend",LBLUE);
+				break;
+		}
+		PrintStr(NEWLINE);
+	}
+}
+
 
 void top(){
 	PrintStr(" There are ");
@@ -287,6 +341,8 @@ void WriteUserINT(){
 int main(){  
 	INIT_SEGMENT();
 	WriteUserINT();
+	SetPort(3,&PROG_SEGMENT_S,sizeof(PROG_SEGMENT_S));
+	SetPort(5,talkBuffer,talkBufSize);
 	cls();
 	uname();
 	DrawText("You can input \'help\' to get more info",1,0,LGREEN);	
@@ -345,6 +401,14 @@ int main(){
 		buf[0] = 0;
 		bufSize = 0; // clean buf
 		while(1){
+
+			if (GetPortMsgV(5)){
+				PrintStr(talkBuffer);
+				SetPortMsgV(5,0);
+				PrintStr(NEWLINE);
+				break;
+			}
+
 			char c = getchar();
 			 if (c == '\r'){
 				PrintStr(NEWLINE);

@@ -11,9 +11,9 @@ BITS 16
 ;16k = 0x4000
 ;4M = 0x4 0 0000
 MaxRunNum equ 16
-MSG_SEGMENT equ 3000h
-PCB_SEGMENT equ 4000h 
-PROG_SEGMENT equ 5000h 
+MSG_SEGMENT equ 4000h
+PCB_SEGMENT equ MSG_SEGMENT + 100h 
+PROG_SEGMENT equ PCB_SEGMENT + (MaxRunNum * PCBSize / 16)
 UserProgramOffset equ 100h
 UpdateTimes equ 20
 
@@ -169,6 +169,9 @@ WKCNINT21H:
 	;AH = 04h, 返回PROG_SEGMENT
 	;AH = 05h, 返回MSG_SEGMENT
 	;AH = 06h, 返回MaxRunNum
+	;AH = 07h, 停止时钟
+	;AH = 08h, 开启时钟
+	;AH = 09h, ++RunNum
 	push es
 	push dx
 	push cx
@@ -190,6 +193,12 @@ WKCNINT21H:
 	je RETN_MSG_S
 	cmp ah, 06h
 	je RETN_MAXRUNNUM
+	cmp ah, 07h
+	je STOP_CLOCK
+	cmp ah, 08h
+	je START_CLOCK
+	cmp ah, 09h
+	je INC_RUNNUM
 
 	jmp INT21HEND
 
@@ -231,7 +240,28 @@ WKCNINT21H:
 	mov ax, MaxRunNum
 	jmp INT21HEND
 
+	STOP_CLOCK:
+	mov ax, cs
+	mov es, ax
+	mov al, 0
+	mov byte[es:CLOCKON],al
+	jmp INT21HEND
+
+	START_CLOCK:
+	mov ax, cs
+	mov es, ax
+	mov al, 1
+	mov byte[es:CLOCKON],al
+	jmp INT21HEND
+
+	INC_RUNNUM:
+	mov ax, cs
+	mov es, ax
+	inc word[es:RunNum] 
+	jmp INT21HEND
+
 	INT21HEND:
+
 	pop bx
 	pop cx
 	pop dx
@@ -240,16 +270,153 @@ WKCNINT21H:
 
 WKCNINT22H:
 	;22H进程, 进程通信
-	;ax = 00h 读
-	;ax = 01h 写等待
-	;ax = 02h 写不等待
-	;ax = 03h 重新设置
-	;ax = 04h 关闭端口
-	;基地址bx, 缓存大小cx, 端口值dx, 段地址es 
+
+	;ah = 00h 读
+	;ah = 01h 写
+	;ah = 02h 信号量设置(bh=0, 清零; bh=1, 加1; bh=2, 减1; bh=3, 设置为bl值)
+	;ah = 03h 设置端口
+	;ah = 04h 关闭端口
+	;ah = 05h 只返回信号量
+	;al = 端口值
+	;基地址bx, 缓存大小cx, 段地址dx 
+	;返回信号量(ax)
+
+	;信号描述 大小
+	;是否开启 byte
+	;信号量 byte
+	;大小	word
+	;偏移量 word
+	;段地址	word
+	;
+	;总大小 8
+	
+	MSG_OPENED_OFF equ 0
+	MSG_SIG_OFF equ 1
+	MSG_SIZE_OFF equ 2
+	MSG_OFFSET_OFF equ 4
+	MSG_SEG_OFF equ 6
+
+	push dx
+	push cx
+	push bx
+	push es
+	push ds
+	push si
+	push di
+	mov es, dx; es = 目标段地址
+	mov di, bx
+	;[es:di] = 目标量
+	mov bl, ah; bl 记录功能号
+	mov ah, 8
+	mul ah
+	;ax = 信号偏移量
+	mov si, ax
+	mov ax, MSG_SEGMENT
+	mov ds, ax
+	;[ds:si] = 信号量
+
+	cmp bl, 0
+	je MSG_READ
+	cmp bl, 1
+	je MSG_WRITE
+	cmp bl, 2
+	je SET_MSG_V
+	cmp bl, 3
+	je RESET_MSG
+	cmp bl, 4
+	je CLOSE_MSG
+
+	jmp INT22HEND
+
+%macro INIT_MSG_RW 1
+	cmp byte[ds:si + MSG_OPENED_OFF], 0
+	je INT22HEND
+	cmp cx, word[ds:si + MSG_SIZE_OFF]
+	jbe NOT_OVERFLOW_%1
+	mov cx, word[ds:si + MSG_SIZE_OFF]
+	NOT_OVERFLOW_%1:
+	mov ax, [ds:si + MSG_SEG_OFF]
+	mov bx, [ds:si + MSG_OFFSET_OFF]	
+	cld
+%endmacro
+
+MSG_READ:
+	INIT_MSG_RW 0
+	mov ds, ax
+	mov si, bx
+	MSG_READ_LOOP:
+		movsb
+	loop MSG_READ_LOOP	
+	jmp INT22HEND
+MSG_WRITE:
+	INIT_MSG_RW 1
+	mov dx, es
+	mov es, ax
+	mov ds, dx
+	mov si, di
+	mov di, bx
+	MSG_WRITE_LOOP:
+		movsb
+	loop MSG_WRITE_LOOP
+	mov dx, di
+	mov si, dx
+	mov dx, es
+	mov ds, dx
+	jmp INT22HEND
+SET_MSG_V:
+	cmp byte[ds:si + MSG_OPENED_OFF], 0
+	je INT22HEND
+	;信号量设置(bh=0, 清零; bh=1, 加1; bh=2, 减1; bh=3, 设置为bl值)
+	mov bx, di
+	cmp bh, 0
+	je SET_MSG_V_CLEAR
+	cmp bh, 1
+	je SET_MSG_V_ADD
+	cmp bh, 2
+	je SET_MSG_V_DEC
+	cmp bh, 3
+	je SET_MSG_V_NUM
+
+	SET_MSG_V_CLEAR:
+		mov byte[ds:si+MSG_SIG_OFF],0
+		jmp INT22HEND
+	SET_MSG_V_ADD:
+		inc byte[ds:si+MSG_SIG_OFF]
+		jmp INT22HEND
+	SET_MSG_V_DEC:
+		dec byte[ds:si+MSG_SIG_OFF]
+		jmp INT22HEND
+	SET_MSG_V_NUM:
+		mov byte[ds:si+MSG_SIG_OFF],bl
+		jmp INT22HEND
+
+RESET_MSG:
+	mov ax, 0x0001
+	mov word[ds:si], ax	
+	mov word[ds:si + MSG_SIZE_OFF], cx
+	mov word[ds:si + MSG_OFFSET_OFF], di
+	mov ax, es
+	mov word[ds:si + MSG_SEG_OFF], ax
+	jmp INT22HEND
+CLOSE_MSG:
+	xor al, al
+	mov byte[ds:si], al
+	jmp INT22HEND
+
+	INT22HEND:
+	mov al, byte[ds:si + MSG_SIG_OFF]
+	pop di
+	pop si
+	pop ds
+	pop es
+	pop bx
+	pop cx
+	pop dx
+
 	iret
 
 WKCNINTTimer:
-	cli
+	;cli
 	;Save current Progress
 	;System Stack: *\flags\cs\ip
 	push ds
@@ -310,6 +477,9 @@ WKCNINTTimer:
 	;运行用户程序
 	mov ax, word [ds:RunID]
 	mov cx, PCBSize
+
+	cmp byte [ds:CLOCKON], 1
+	jne GoodUserProg
 
 	FindUserProg:
 	inc ax
@@ -392,7 +562,7 @@ LOAD_PCB:
 	out 20h,al
 	out 0A0h,al
 	pop ax
-	sti
+	;sti
 
 	iret
 
@@ -434,11 +604,16 @@ ProcessesTable:
 	RunNum dw 1
 	ShellMode dw 0
 	ProcessIDAssigner dw 1; 进程 ID 分配
+	CLOCKON db 1
 
 Processes:
 	_ID db 0
 	_STATE db 0 ; 结束态0, 运行态1
 	_NAME db "0123456789ABCDEF" ; 16 bytes
+	_PARENT_ID db 0
+	_FORK_RETN db 0
+	_SEG dw 0
+	_SSIZE dw 0
 	_SIZE dw 0
 	_ES dw 0
 	_DS dw 0

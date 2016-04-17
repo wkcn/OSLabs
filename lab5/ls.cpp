@@ -81,7 +81,7 @@ int main(){
 			if (e.DIR_Name[10] == 0)continue;
 			if (first){
 				first = false;
-				PrintStr("Filename    Size  Date        Time(UTC+8) Clusters",LBLUE);
+				PrintStr("Filename     Size  Date        Time(UTC+8) Clusters",LBLUE);
 				PrintStr(NEWLINE);
 			}
 			//Print Name
@@ -101,7 +101,7 @@ int main(){
 				}
 				else break;
 			}
-			for (int i = count;i < 11;++i)PrintChar(' ');
+			for (int i = count;i < 12;++i)PrintChar(' ');
 			count = PrintNum(e.DIR_FileSize);
 			for(int i = count;i < 6;++i)PrintChar(' ');
 			PrintDate(e.LAST_WrtDate);
