@@ -37,7 +37,7 @@ write_knl: kernel.bin
 build_progs: wkcn1.com wkcn2.com wkcn3.com wkcn4.com kan.com\
    			hello.com bs.com bpb.com ls.com help.com\
 			box.com ouch.com clock.com\
-		   	inttest.com porttest.com fork1.com fork2.com
+		   	inttest.com porttest.com fork1.com fork2.com alpha.com
 
 	mount -o loop $(BUILD_DIR)/disk.img disk/
 

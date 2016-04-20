@@ -334,8 +334,53 @@ void int_23h(){
 	CPP_INT_END;
 }
 
+void int_24h(){
+	//24h 中断
+	//转换大小写
+	//功能号: ah
+	//偏移量: bx
+	//段地址: dx
+	//ah = 0, 全部转小写
+	//ah = 1, 全部转大写
+	int i = 0;
+	uint16_t ax;
+	uint16_t offset;
+	uint16_t seg;
+	asm volatile("":"=a"(ax),"=b"(offset),"=d"(seg));
+	bool toSmall = ((ax&0xFF00) == 0);
+	char c;
+	asm volatile("push es;mov es,dx;"::"d"(seg));
+	
+	while(true){
+		asm volatile(
+				"mov al,es:[bx];"
+				:"=al"(c)
+				:"b"(offset + i)
+				);
+		if (c == 0)break;
+		if (toSmall){
+			if (c >= 'A' && c <= 'Z'){
+				c = c - 'A' + 'a';
+			}
+		}else{
+			if (c >= 'a' && c <= 'z'){
+				c = c - 'a' + 'A';
+			}
+		}
+		asm volatile(
+				"mov es:[bx], al;"
+				:
+				:"a"(c),"b"(offset + i)
+				);
+		++i;
+	}
+	asm volatile("pop es;");
+	CPP_INT_LEAVE;
+}
+
 void WriteUserINT(){
 	WriteIVT(0x23,int_23h);
+	WriteIVT(0x24,int_24h);
 }
 
 int main(){  
