@@ -1,1 +1,1 @@
-#define RELEASE_TIMES 370
+#define RELEASE_TIMES 372

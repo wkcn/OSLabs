@@ -167,7 +167,7 @@ uint8_t fork(){
 	if (_p.FORK_RETN == runid){
 		asm volatile("int 0x21;"::"a"(0x0800));
 		SetTaskSomeThing1(runid,&_p.FORK_RETN,0);
-		return runid;
+		return 0; // 子进程返回0
 	}
 	uint8_t newID = FindEmptyPCB();
 	uint16_t PROG_SEG_S;
@@ -201,9 +201,9 @@ uint8_t fork(){
 	_p.FORK_RETN = newID;
 
 	WritePCB(newID);
-	asm volatile("int 0x21;"::"a"(0x0900));
-	asm volatile("int 0x21;"::"a"(0x0800));
-	return 0;
+	asm volatile("int 0x21;"::"a"(0x0900)); // ++RunNum
+	asm volatile("int 0x21;"::"a"(0x0800)); // 开启时钟
+	return newID; // 父进程返回新创建的子进程ID
 }
 
 #endif
