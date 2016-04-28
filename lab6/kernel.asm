@@ -482,6 +482,7 @@ WKCNINTTimer:
 	jne GoodUserProg ; 不等于1, 说明切换关闭
 	mov dl, byte [ds:PRIORITY_COUNT]
 	inc byte [ds:PRIORITY_COUNT]
+	;bx 还是之前程序的PCB偏移
 	cmp dl, byte [es:(bx + _PRIORITY_OFFSET)]
 	; <= 不高于,不进行进程切换
 	jna GoodUserProg
@@ -505,8 +506,7 @@ WKCNINTTimer:
 
 	cmp byte [es:(si + _STATE_OFFSET)], 3; Ready
 	jne DEAD_JUDGE
-	mov dl, 1
-	mov byte [es:(si + _STATE_OFFSET)], dl
+	mov byte [es:(si + _STATE_OFFSET)], 1; Ready -> Running
 	;inc word [ds:RunNum]
 	jmp GoodUserProg
 
@@ -514,9 +514,36 @@ WKCNINTTimer:
 	cmp byte [es:(si + _STATE_OFFSET)], 4; Dead
 	jne FindUserProg
 	;Dead
-	mov dl, 0
-	mov byte [es:(si + _STATE_OFFSET)], dl
+	cmp byte [es:(si + _KIND_OFFSET)], 2; 若等于则为线程 
+	jne KillCommonProg
+	;线程终结处理
+	jmp FindUserProg ; 暂时处理方法为: 由主线程统一处理
+
+	KillCommonProg:
+	mov byte [es:(si + _STATE_OFFSET)], 0
 	dec word [ds:RunNum]
+
+	;杀死线程
+	mov bx, ax
+	push ax
+	mov ax, MaxRunNum - 1
+	KillThread:
+		push ax
+		mul cx
+		mov si, ax
+		pop ax
+		cmp byte [es:(si + _KIND_OFFSET)], 2; 等于则线程
+		jne NOTTHREAD
+		cmp byte [es:(si + _PARENT_ID_OFFSET)], bl
+		jne NOTTHREAD
+		mov byte [es:(si + _STATE_OFFSET)], 0 ; 设置进程的state为0
+		dec word [ds:RunNum]
+		NOTTHREAD:
+		dec ax
+	jg KillThread 
+	pop ax
+
+
 	jmp FindUserProg
 
 	GoodUserProg:

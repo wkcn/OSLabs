@@ -104,7 +104,7 @@ int RunProg(int i){
 	return RunProg(filename);
 }
 void Top(){
-	PrintStr(" PID Name         Size    SEG     CS      IP      State\r\n", LBLUE);
+	PrintStr(" PID Name         Size    SEG     CS      IP      Parent  State\r\n", LBLUE);
 	for (uint16_t t = 0;t < MaxRunNum;++t){
 		LoadPCB(t);
 		if (_p.STATE == T_EMPTY)continue;
@@ -135,6 +135,10 @@ void Top(){
 		PrintHex2(_p.IP);
 		PrintStr("  ");
 
+		count = PrintNum(_p.PARENT_ID);
+		for (int i = count;i < 8;++i)PrintChar(' ');
+
+
 		switch (_p.STATE){
 			case T_RUNNING:
 				PrintStr("Running",LGREEN);
@@ -144,6 +148,9 @@ void Top(){
 				break;
 			case T_SUSPEND:
 				PrintStr("Suspend",LBLUE);
+				break;
+			case T_DEAD:
+				PrintStr("Dead",RED);
 				break;
 		}
 		PrintStr(NEWLINE);
