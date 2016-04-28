@@ -160,6 +160,11 @@ WKCNINT20H:
 
 	iret
 
+;注意, 如果这个放在代码段, 会导致被当成代码运行:-(
+INT21HJMPLIST:
+	dw TabShellMode, TabProgState, GetRunID, RETN_PCB_S, RETN_PROG_S, RETN_MSG_S, RETN_MAXRUNNUM
+	dw STOP_CLOCK, START_CLOCK, INC_RUNNUM
+
 WKCNINT21H:
 	;21H中断
 	;AH = 00h, 切换ShellMode到al状态
@@ -179,28 +184,14 @@ WKCNINT21H:
 	mov bx, cs
 	mov es, bx
 
-	cmp ah, 00h
-	je TabShellMode
-	cmp ah, 01h
-	je TabProgState 
-	cmp ah, 02h
-	je GetRunID
-	cmp ah, 03h
-	je RETN_PCB_S
-	cmp ah, 04h
-	je RETN_PROG_S
-	cmp ah, 05h
-	je RETN_MSG_S
-	cmp ah, 06h
-	je RETN_MAXRUNNUM
-	cmp ah, 07h
-	je STOP_CLOCK
-	cmp ah, 08h
-	je START_CLOCK
-	cmp ah, 09h
-	je INC_RUNNUM
+	;判断是否有效
+	cmp ah, 0x09
+	ja INT21HEND
 
-	jmp INT21HEND
+	xor bx, bx
+	mov bl, ah
+	shl bx, 1
+	jmp word[cs:(INT21HJMPLIST + bx)]
 
 	;AH = 00h
 	TabShellMode:
@@ -268,6 +259,9 @@ WKCNINT21H:
 	pop es
 	iret
 
+INT22HJMPLIST:
+	dw MSG_READ, MSG_WRITE, SET_MSG_V,RESET_MSG,CLOSE_MSG,INT22HEND 
+
 WKCNINT22H:
 	;22H进程, 进程通信
 
@@ -315,18 +309,11 @@ WKCNINT22H:
 	mov ds, ax
 	;[ds:si] = 信号量
 
-	cmp bl, 0
-	je MSG_READ
-	cmp bl, 1
-	je MSG_WRITE
-	cmp bl, 2
-	je SET_MSG_V
-	cmp bl, 3
-	je RESET_MSG
-	cmp bl, 4
-	je CLOSE_MSG
-
-	jmp INT22HEND
+	cmp bl, 0x05
+	ja INT22HEND
+	mov bh, 0
+	shl bx, 1
+	jmp word[cs:(INT22HJMPLIST + bx)]
 
 %macro INIT_MSG_RW 1
 	cmp byte[ds:si + MSG_OPENED_OFF], 0
@@ -404,6 +391,7 @@ CLOSE_MSG:
 	jmp INT22HEND
 
 	INT22HEND:
+	;设置信号量
 	mov al, byte[ds:si + MSG_SIG_OFF]
 	pop di
 	pop si
@@ -532,6 +520,8 @@ WKCNINTTimer:
 		mul cx
 		mov si, ax
 		pop ax
+		cmp byte [es:(si + _STATE_OFFSET)], 0 ; 空进程
+		je NOTTHREAD
 		cmp byte [es:(si + _KIND_OFFSET)], 2; 等于则线程
 		jne NOTTHREAD
 		cmp byte [es:(si + _PARENT_ID_OFFSET)], bl

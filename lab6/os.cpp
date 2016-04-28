@@ -10,7 +10,7 @@ asm(".code16gcc\n");
 #include "include/interrupt.h"
 #include "include/port.h"
 
-const char *OS_INFO = "MiraiOS 0.2";
+const char *OS_INFO = "MiraiOS 0.3";
 const char *PROMPT_INFO = "wkcn > ";
 const char *NOPROG_INFO = "No User Process is Running!";
 const char *BATCH_INFO = "Batching Next Program: ";
@@ -35,6 +35,15 @@ extern "C" const uint8_t INT09H_FLAG;
 extern "C" uint16_t INT_INFO; //中断信号 
 
 uint16_t PROG_SEGMENT_S = 0;
+
+void KillAll(){
+	for (uint8_t i = 1;i < MaxRunNum;++i){
+		uint8_t state = GetTaskState(i);
+		if (state != T_EMPTY){
+			SetTaskState(i, T_DEAD);
+		}
+	}
+}
 
 __attribute__((regparm(1)))
 int RunProg(char *filename){
@@ -103,8 +112,10 @@ int RunProg(int i){
 	SetAllTask(T_RUNNING, T_SUSPEND);
 	return RunProg(filename);
 }
+
+
 void Top(){
-	PrintStr(" PID Name         Size    SEG     CS      IP      Parent  State\r\n", LBLUE);
+	PrintStr(" PID Name         PR   Size    SEG     CS      IP      Parent  State\r\n", LBLUE);
 	for (uint16_t t = 0;t < MaxRunNum;++t){
 		LoadPCB(t);
 		if (_p.STATE == T_EMPTY)continue;
@@ -119,7 +130,12 @@ void Top(){
 				PrintChar(_p.NAME[count], CYAN);
 			}
 		}
+
+
 		PrintStr("  ");
+		count = PrintNum(_p.PRIORITY);
+		for (int i = count;i < 4;++i)PrintChar(' ');
+
 		count = PrintNum(_p.SIZE);
 		for (int i = count;i < 8;++i)PrintChar(' ');
 
@@ -229,6 +245,17 @@ bool IsNum(int i){
 	return true;
 }
 
+
+void PR(){
+		//pr id value
+		uint8_t id = GetNum(1);
+		if (GetTaskState(id) != T_EMPTY){
+			uint8_t value = GetNum(2);
+			if (value > 10)value = 10;
+			SetTaskAttr(id,&_p.PRIORITY,value);
+		}
+}
+
 void Execute(){  
 	if (bufSize <= 0)return;
 	batchSize = 0;
@@ -294,6 +321,8 @@ void Execute(){
 			ExecuteINT(id);
 	}else if(CommandMatch("suspend")){
 		for(int q=1;q<parSize;++q)SetTaskState(GetNum(q),T_SUSPEND,T_RUNNING);
+	}else if(CommandMatch("pr")){
+		PR();
 	}else if (IsNum(0)){
 		for (int k = 0;k < parSize && buf[k];++k){
 			char c = buf[k];

@@ -130,14 +130,6 @@ void GetTaskAttr(uint8_t id, void *something, uint16_t &value){
 			);
 }
 
-void KillAll(){
-	for (uint8_t i = 1;i < MaxRunNum;++i){
-		uint8_t state = GetTaskState(i);
-		if (state != T_EMPTY){
-			SetTaskState(i, T_DEAD);
-		}
-	}
-}
 
 __attribute__((regparm(2)))
 void SetAllTask(uint8_t toState,uint8_t fromState){

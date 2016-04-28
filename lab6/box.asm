@@ -14,6 +14,15 @@
 	mov ax,cs 
 	mov ds,ax					; DS = CS
 
+	;使用时钟决定颜色
+	mov ax, 0x0200
+	int 0x1a
+	cmp dh, 0
+	je NC
+	and dh, 0Fh
+	mov byte[color], dh
+	NC:
+
 	mov ax, 3
 	int 10h
 	jmp Timer
