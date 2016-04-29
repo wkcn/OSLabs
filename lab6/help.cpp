@@ -9,6 +9,7 @@ cls      Clear Screen\n\r\
 top      View all running processes\n\r\
 wake     Wake a process, ex: wake 1\n\r\
 suspend  Suspend a process, ex: suspend 2\n\r\
+pr       Set the priority of a task ex: pr [pid] [priority]\n\r\
 kill     Kill a process, ex: kill 3\n\r\
 killall  Kill all Processes\n\r\
 uname    Show os info\n\r\

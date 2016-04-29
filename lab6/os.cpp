@@ -115,7 +115,7 @@ int RunProg(int i){
 
 
 void Top(){
-	PrintStr(" PID Name         PR   Size    SEG     CS      IP      Parent  State\r\n", LBLUE);
+	PrintStr(" PID Name         PR  Size    SEG     CS      IP      Parent  State\r\n", LBLUE);
 	for (uint16_t t = 0;t < MaxRunNum;++t){
 		LoadPCB(t);
 		if (_p.STATE == T_EMPTY)continue;

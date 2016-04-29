@@ -1,13 +1,12 @@
-实验5（版本2, 编译版本号：371）：
-(版本2增加了一些fork测试，进程通信测试，系统调用中断测试)
-系统镜像disk.img放在build文件夹中
-实验报告在report文件夹中
-进入系统后输入help能获得对应帮助。
+实验6（版本1, 编译版本号：462）：
+系统镜像在build/disk.img
+实验报告在report文件夹
 
-系统分为Shell模式（可以输入命令）和用户程序模式
-默认用户程序会在切换到Shell模式下全部挂起
-用户程序也可以在Shell模式下运行， 需要在Shell模式下用wake 进程id的方式唤醒。
-Ouch!Ouch!只能在用户程序模式按键显示
+这次实验更正了之前fork函数的返回值错误问题
+新增了线程thread_create和thread_join函数, 能够实现多线程矩阵乘法
+实现了进程优先级
+
+
 
 可用指令：
 指令名称	功能
@@ -17,6 +16,10 @@ int 调用某个中断（支持33h,34h,35h,36h）, 如int 33h
 kill 杀死某个进程
 wake 唤醒某个进程
 suspend 挂起某个进程
+
+[*新增指令*]
+pr 设置进程优先级, 用法:pr 1 5, 即设置PID为1的进程优先级为5
+
 ls	列出所有用户程序信息(大小时间占用簇)
 bpb	显示BPB
 bs	显示EBPB
@@ -33,9 +36,11 @@ Ctrl+Z: 返回Shell并且杀死所有进程
 ls,bpb,bs,hello,
 wkcn1,wkcn2,wkcn3,wkcn4,kan,box
 clock,ouch,inttest
-测试IO端口：
-porttest
-测试fork():
+**测试多线程**:
+mat   一个多线程矩阵乘法测试
+**测试IO端口, 可用于进程通信：
+porttest 使用0号端口读写屏幕IO
+**测试fork():
 fork1, fork2, alpha
 测试大小写转换（使用了系统中断）：
 alpha
