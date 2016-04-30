@@ -141,18 +141,15 @@ WKCNINT20H:
 	push bx
 	push ax
 
-	mov ax, cs
-	mov es, ax
-	mov ax, 0
-	mov [es:ShellMode], ax
-	mov ax, [es:RunID]
+	mov word[cs:ShellMode], 0
+	mov ax, [cs:RunID]
 	mov bx, PCBSize
 	mul bx
 	mov bx, ax
 	mov ax, PCB_SEGMENT
 	mov es, ax
-	mov al, 4
-	mov byte[es:(bx + _STATE_OFFSET)], al
+	mov byte[es:(bx + _STATE_OFFSET)], 4 ; Dead
+
 	pop ax
 	pop bx
 	pop dx
@@ -234,15 +231,13 @@ WKCNINT21H:
 	STOP_CLOCK:
 	mov ax, cs
 	mov es, ax
-	mov al, 0
-	mov byte[es:CLOCKON],al
+	mov byte[es:CLOCKON],0
 	jmp INT21HEND
 
 	START_CLOCK:
 	mov ax, cs
 	mov es, ax
-	mov al, 1
-	mov byte[es:CLOCKON],al
+	mov byte[es:CLOCKON],1
 	jmp INT21HEND
 
 	INC_RUNNUM:
@@ -507,9 +502,35 @@ WKCNINTTimer:
 	;线程终结处理
 	jmp FindUserProg ; 暂时处理方法为: 由主线程统一处理
 
-	KillCommonProg:
+%macro ReleaseProg 0
+	mov byte[cs:CLOCKON],0
+	push cx
+	push bx
+	push ax
+
+
+	mov ax, 0
+	mov bx, word [es:(si + _SEG_OFFSET)]
+	mov cx, word [es:(si + _SSIZE_OFFSET)]
+
+	push di
+	pushf
+	mov di, 23h * 4
+	call dword [cs:di]
+	pop di
+
 	mov byte [es:(si + _STATE_OFFSET)], 0
 	dec word [ds:RunNum]
+
+	pop ax
+	pop bx
+	pop cx
+
+	mov byte[cs:CLOCKON],1
+%endmacro
+
+	KillCommonProg:
+	ReleaseProg
 
 	;杀死线程
 	mov bx, ax
@@ -526,8 +547,7 @@ WKCNINTTimer:
 		jne NOTTHREAD
 		cmp byte [es:(si + _PARENT_ID_OFFSET)], bl
 		jne NOTTHREAD
-		mov byte [es:(si + _STATE_OFFSET)], 0 ; 设置进程的state为0
-		dec word [ds:RunNum]
+		ReleaseProg
 		NOTTHREAD:
 		dec ax
 	jg KillThread 
@@ -608,6 +628,8 @@ PCBCONST:
 	SetOffset _STATE
 	SetOffset _NAME
 	SetOffset _SIZE
+	SetOffset _SSIZE
+	SetOffset _SEG
 	SetOffset _KIND
 	SetOffset _PARENT_ID
 	SetOffset _PRIORITY

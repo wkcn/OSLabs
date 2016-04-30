@@ -1,12 +1,12 @@
-asm(".code16gcc\n");
+//asm(".code16gcc\n");
 //asm("jmp 0:main");
 #include <stdint.h>
 #include "include/io.h"
 #include "include/string.h"
 #include "include/disk.h"
 #include "include/keyboard.h"
-#include "include/task.h"
 #include "include/version.h"
+#include "include/pcb.h"
 #include "include/interrupt.h"
 #include "include/port.h"
 #include "include/memory.h"
@@ -37,8 +37,6 @@ extern "C" uint16_t RunNum;
 extern "C" const uint8_t INT09H_FLAG;
 extern "C" uint16_t INT_INFO; //中断信号 
 
-uint16_t PROG_SEGMENT_S = 0;
-
 void KillAll(){
 	for (uint8_t i = 1;i < MaxRunNum;++i){
 		uint8_t state = GetTaskState(i);
@@ -54,12 +52,12 @@ int RunProg(char *filename){
 	//addr = (char*)(((PROG_SEGMENT + PROG_SEGMENT_S) << 4) + 0x100); 
 	//uint16_t addrseg = (PROG_SEGMENT + PROG_SEGMENT_S); 
 	uint16_t offset = 0x100;
-	int si = GetFileSize(filename);
+	uint16_t si = GetFileSize(filename);
 	uint16_t SSIZE = ((si + 0x100 + (1<<4) - 1) >> 4); 
 	uint16_t addrseg = allocate(SSIZE);//(PROG_SEGMENT + PROG_SEGMENT_S);
+	if (addrseg == 0xFFFF)return 0;
 	si = LoadFile(filename,offset,addrseg);
 	if (si == 0)return 0;
-	PROG_SEGMENT_S += SSIZE; 
 
 	//设置用户程序运行标志
 	asm volatile(
@@ -117,6 +115,16 @@ int RunProg(int i){
 	return RunProg(filename);
 }
 
+void MEM(){
+	for (int p = memdata[0].next; p != MaxBlockNum; p = memdata[p].next){
+		PrintChar('[');
+		PrintNum(memdata[p].left);
+		PrintStr(", ");
+		PrintNum(memdata[p].right);
+		PrintStr(") ");
+	}
+	PrintStr(NEWLINE);
+}
 
 void Top(){
 	PrintStr(" PID Name         PR  Size    SEG     CS      IP      Parent  State\r\n", LBLUE);
@@ -327,6 +335,8 @@ void Execute(){
 		for(int q=1;q<parSize;++q)SetTaskState(GetNum(q),T_SUSPEND,T_RUNNING);
 	}else if(CommandMatch("pr")){
 		PR();
+	}else if(CommandMatch("mem")){
+		MEM();
 	}else if (IsNum(0)){
 		for (int k = 0;k < parSize && buf[k];++k){
 			char c = buf[k];
@@ -373,16 +383,14 @@ bool NeedRetnShell(){
 
 
 void int_23h(){
+	CPP_INT_HEADER;
 	/*
 	 * ah = 00h, 释放段地址bx， 段大小为cx的内存
 	 * ah = 01h, 申请段大小为cx的内存， 返回值为段地址
 	 */
-	//asm volatile("nop;nop;nop;nop;nop;nop;nop;nop;nop;nop;nop;nop;nop;nop;");
-	//asm volatile("mov ax, bx"::"b"(0x7000));
 	uint16_t ax;
 	uint16_t size;
 	uint16_t addr;
-	//CPP_INT_LEAVE;
 	asm volatile("":"=a"(ax),"=b"(addr),"=c"(size));
 	uint16_t ah = (ax & 0xFF00) >> 8;
 	if (ah == 0x00){
@@ -396,6 +404,7 @@ void int_23h(){
 }
 
 void int_24h(){
+	CPP_INT_HEADER;
 	//24h 中断
 	//转换大小写
 	//功能号: ah
@@ -441,6 +450,7 @@ void int_24h(){
 
 
 void int_25h(){
+	CPP_INT_HEADER;
 	PrintStr("I'm an interrupt written by C++", YELLOW);
 	PrintStr(NEWLINE);
 	CPP_INT_END;
@@ -456,7 +466,6 @@ int main(){
 	INIT_SEGMENT();
 	mem_init();
 	WriteUserINT();
-	SetPort(3,&PROG_SEGMENT_S,sizeof(PROG_SEGMENT_S));
 	SetPort(5,talkBuffer,talkBufSize);
 	cls();
 	uname();

@@ -1,7 +1,6 @@
 #ifndef _TASK_H_
 #define _TASK_H_
 
-#include "io.h"
 #include "pcb.h"
 #include "memory.h"
 

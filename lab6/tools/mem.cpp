@@ -9,7 +9,7 @@ struct MemBlock{
 };
 
 const int MaxBlockNum = 255;
-const int MemoryStart = 0;
+const int MemoryStart = 10;
 const int MemoryEnd = 100;
 class Memory{
 public:

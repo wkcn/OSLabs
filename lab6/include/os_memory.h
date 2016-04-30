@@ -2,7 +2,7 @@
 #define _OSMEMORY_H_
 
 #include <stdint.h>
-#include "port.h"
+#include "io.h"
 
 //16位下GCC不支持类Class?
 
@@ -15,111 +15,113 @@ uint16_t SPACE_PROG_SEGMENT;
 
 struct MemBlock{
 	bool used;
-	int left, right; //[left,right)
-	int next;
+	uint16_t left, right; //[left,right)
+	uint16_t next;
 };
 
-const int MaxBlockNum = 255;
-const int SPACE_SIZE = 0x6000;
-MemBlock data[MaxBlockNum + 1];
-int MemoryEnd;
+const uint16_t MaxBlockNum = 255;
+const uint16_t SPACE_SIZE = 0x5000;
+MemBlock memdata[MaxBlockNum + 1];
+uint16_t MemoryEnd;
 
 void mem_init(){
-	for (int i = 0;i < SPACE_SIZE + 1;++i)data[i].used = false;
-	data[0].used = true;
-	data[0].next = 1;
-	data[0].left = -1;
-	data[0].right = -1;
-
-	data[1].used = true;
+	for (uint16_t i = 0;i < MaxBlockNum + 1;++i)memdata[i].used = false;
 	GET_PROG_SEGMENT;
-	MemoryEnd = SPACE_PROG_SEGMENT + SPACE_SIZE;
-	data[1].left = SPACE_PROG_SEGMENT;
-	data[1].right = SPACE_PROG_SEGMENT + SPACE_SIZE;
-	data[1].next = MaxBlockNum;
 
-	data[MaxBlockNum].used = true;
-	data[MaxBlockNum].left = MemoryEnd + 1;
-	data[MaxBlockNum].right = MemoryEnd + 1;
+	memdata[0].used = true;
+	memdata[0].next = 1;
+	memdata[0].left = SPACE_PROG_SEGMENT - 1;
+	memdata[0].right = SPACE_PROG_SEGMENT - 1;
+
+	memdata[1].used = true;
+	MemoryEnd = SPACE_PROG_SEGMENT + SPACE_SIZE;
+	memdata[1].left = SPACE_PROG_SEGMENT;
+	memdata[1].right = SPACE_PROG_SEGMENT + SPACE_SIZE;
+	memdata[1].next = MaxBlockNum;
+
+	memdata[MaxBlockNum].used = true;
+	memdata[MaxBlockNum].left = MemoryEnd + 1;
+	memdata[MaxBlockNum].right = MemoryEnd + 1;
 };
 
 __attribute__((regparm(1)))
-	int mem_allocate(int needSize){
-		//使用最佳适应算法, 每次找最小的分区
-		bool first = true;
-		int blockSize = 0;
-		int lastp = 0;
-		int goodlastp = 0;
-		int goodp = 0;
-		for (int p = data[0].next;p != MaxBlockNum;lastp = p, p = data[p].next){
-			int u = data[p].right - data[p].left;
-			if (u < needSize)continue;
-			if (first || u < blockSize){
-				first = false;
-				goodp = p;
-				goodlastp = lastp;
-				blockSize = u;
-			}
-		}
-		if (first)return -1; // 无法分配
-		int addr = data[goodp].left;
-		//从链表中删除空间
-		if (blockSize == needSize){
-			//刚好删除
-			data[goodp].used = false;
-			data[goodlastp].next = data[goodp].next; 
-		}else{
-			//大于所要申请的空间
-			//取前面部分
-			data[goodp].left += needSize;
-		}
-		return addr;
+uint16_t mem_allocate(uint16_t needSize){
+	//使用最佳适应算法, 每次找最小的分区
+	bool first = true;
+	uint16_t blockSize = 0;
+	uint16_t lastp = 0;
+	uint16_t goodlastp = 0;
+	uint16_t goodp = 0;
+	for (uint16_t p = memdata[0].next;p != MaxBlockNum;lastp = p, p = memdata[p].next){
+		uint16_t u = memdata[p].right - memdata[p].left;
+		if (u < needSize)continue;
+		if (first || u < blockSize){
+			first = false;
+			goodp = p;
+			goodlastp = lastp;
+			blockSize = u;
+	 	}
+	} 
+	if (first)return 0xFFFF; // 无法分配
+	uint16_t addr = memdata[goodp].left;
+	//从链表中删除空间
+	if (blockSize == needSize){
+		//刚好删除
+		memdata[goodp].used = false;
+		memdata[goodlastp].next = memdata[goodp].next; 
+	}else{
+		//大于所要申请的空间
+		//取前面部分
+		memdata[goodp].left += needSize;
 	}
+	return addr;
+}
+
 __attribute__((regparm(2)))
-	void mem_free(int addr, int freeSize){
-		//释放空间
-		int lastp = 0;
-		int p;
-		for (p = data[lastp].next;p != MaxBlockNum;lastp = p, p = data[p].next){
-			//找到>=上个节点的right值的点
-			if (addr >= data[lastp].right && addr < data[p].right)break;
-		}
-		//这时, addr >= data[lastp].right
-		if (addr == data[lastp].right){
-			//与上一个节点融合
-			//lastp 一定不为0
-			if (addr + freeSize >= data[p].left){
-				//与p节点融合
-				if (p != MaxBlockNum){
-					data[lastp].next = data[p].next;
-					data[p].used = false;
-					data[lastp].right = data[p].right;
-				}else{
-					data[lastp].right = MemoryEnd;
-				}
+void mem_free(uint16_t addr, uint16_t freeSize){
+	//释放空间
+	uint16_t lastp = 0;
+	uint16_t p;
+	for (p = memdata[lastp].next;p != MaxBlockNum;lastp = p, p = memdata[p].next){
+		//找到>=上个节点的right值的点
+		if (addr >= memdata[lastp].right && addr < memdata[p].right)break;
+ 	} 
+	//这时, addr >= memdata[lastp].right
+	if (addr == memdata[lastp].right){
+		//与上一个节点融合
+		//lastp 一定不为0
+		if (addr + freeSize >= memdata[p].left){
+			//与p节点融合
+			if (p != MaxBlockNum){
+				memdata[lastp].next = memdata[p].next;
+				memdata[p].used = false;
+				memdata[lastp].right = memdata[p].right;
 			}else{
-				data[lastp].right = addr + freeSize;
-			}
+				memdata[lastp].right = MemoryEnd;
+		 	}
 		}else{
-			//与上一个节点不融合
-			//lastp 可能为0
-			if (addr + freeSize >= data[p].left){
-				//与p节点融合
-				data[p].left = addr;
-			}else{
-				//与前后都不融合
-				int e;
-				for (e = 1;e < MaxBlockNum;++e){
-					if (!data[e].used)break;
-				}
-				data[lastp].next = e;
-				data[e].used = true;
-				data[e].next = p;
-				data[e].left = addr;
-				data[e].right = addr + freeSize;
+			memdata[lastp].right = addr + freeSize;
+	 	}
+	}else{
+		//与上一个节点不融合
+		//lastp 可能为0
+		if (addr + freeSize >= memdata[p].left){
+			//与p节点融合
+			memdata[p].left = addr;
+		}else{
+			//与前后都不融合
+			uint16_t e;
+			for (e = 1;e < MaxBlockNum;++e){
+				if (!memdata[e].used)break;
 			}
-		}
-	}
+			memdata[lastp].next = e;
+			memdata[e].used = true;
+			memdata[e].next = p;
+			memdata[e].left = addr;
+			memdata[e].right = addr + freeSize;
+		} 
+	} 
+} 
 
 
 

@@ -2,7 +2,6 @@
 #define _THREAD_H_
 
 #include "pcb.h"
-#include "port.h"
 #include "memory.h"
 
 struct thread_t{

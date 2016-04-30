@@ -76,7 +76,7 @@ void ReadFloppy(uint16_t sectorID, uint8_t sectorNum, void *data){
 
 
 __attribute__((regparm(1)))
-int GetFileSize(char *filename){
+uint16_t GetFileSize(char *filename){
 	char buf[512];
 	Entry e;
 	for (int i = 19;i < 19 + 14;++i){
@@ -99,7 +99,7 @@ int GetFileSize(char *filename){
 }
 
 __attribute__((regparm(3)))
-int LoadFile(char *filename, uint16_t offset, uint16_t seg){
+uint16_t LoadFile(char *filename, uint16_t offset, uint16_t seg){
 	char buf[1024];
 	Entry e;
 	for (int i = 19;i < 19 + 14;++i){
