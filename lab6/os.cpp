@@ -55,9 +55,14 @@ int RunProg(char *filename){
 	uint16_t si = GetFileSize(filename);
 	uint16_t SSIZE = ((si + 0x100 + (1<<4) - 1) >> 4); 
 	uint16_t addrseg = allocate(SSIZE);//(PROG_SEGMENT + PROG_SEGMENT_S);
-	if (addrseg == 0xFFFF)return 0;
+	if (addrseg == 0xFFFF){
+		PrintStr("Lack of Memory\r\n",RED);
+		return 0;
+	}
 	si = LoadFile(filename,offset,addrseg);
-	if (si == 0)return 0;
+	if (si == 0){
+		return 0;
+	}
 
 	//设置用户程序运行标志
 	asm volatile(

@@ -25,6 +25,10 @@ uint8_t thread_create(thread_t *t, __attribute__((regparm(1)))void* (*func)(void
 	}
 	uint8_t newID = FindEmptyPCB();
 	uint16_t addrseg = allocate(0x10); 
+	if (addrseg == 0xFFFF){
+		asm volatile("int 0x21;"::"a"(0x0800)); // 开启进程切换
+		return 0xFF;
+	}
 	//[ds:si] -> [es:di]
 	asm volatile("push ds;push si;push es;push di;"
 			"mov ds,ax;"

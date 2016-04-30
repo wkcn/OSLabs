@@ -17,6 +17,10 @@ uint8_t fork(){
 	}
 	uint8_t newID = FindEmptyPCB();
 	uint16_t addrseg = allocate(_p.SSIZE); 
+	if (addrseg == 0xFFFF){
+		asm volatile("int 0x21;"::"a"(0x0800)); // 开启进程切换
+		return 0xFF;
+	}
 	//[ds:si] -> [es:di]
 	asm volatile("push ds;push si;push es;push di;"
 			"mov ds,ax;"
