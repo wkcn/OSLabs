@@ -121,14 +121,27 @@ int RunProg(int i){
 }
 
 void MEM(){
+	uint16_t validMem = 0;
+	uint16_t maxBlock = 0;
 	for (int p = memdata[0].next; p != MaxBlockNum; p = memdata[p].next){
 		PrintChar('[');
 		PrintNum(memdata[p].left);
 		PrintStr(", ");
 		PrintNum(memdata[p].right);
 		PrintStr(") ");
+		uint16_t u = (memdata[p].right - memdata[p].left) / (1024 / 16);
+		validMem += u;
+		if (u > maxBlock)maxBlock = u;
 	}
 	PrintStr(NEWLINE);
+	PrintStr("Memory  : ",GREEN);
+	PrintNum(validMem);
+	PrintStr(" / ");
+	PrintNum(SPACE_SIZE / (1024 / 16));
+	PrintStr(" Kbytes\r\n");
+	PrintStr("MaxBlock: ",GREEN);
+	PrintNum(maxBlock);
+	PrintStr(" Kbytes\r\n");
 }
 
 void Top(){

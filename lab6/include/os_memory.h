@@ -5,6 +5,8 @@
 #include "io.h"
 
 //16位下GCC不支持类Class?
+//
+//这个内存管理还有一点小问题， 会产生碎片
 
 const uint16_t BOX_SIZE = 512;
 const uint16_t BOX_NUM = 512;
@@ -20,7 +22,7 @@ struct MemBlock{
 };
 
 const uint16_t MaxBlockNum = 255;
-const uint16_t SPACE_SIZE = 0x5000;
+const uint16_t SPACE_SIZE = 0x4000;
 MemBlock memdata[MaxBlockNum + 1];
 uint16_t MemoryEnd;
 
@@ -84,7 +86,7 @@ void mem_free(uint16_t addr, uint16_t freeSize){
 	uint16_t p;
 	for (p = memdata[lastp].next;p != MaxBlockNum;lastp = p, p = memdata[p].next){
 		//找到>=上个节点的right值的点
-		if (addr >= memdata[lastp].right && addr < memdata[p].right)break;
+		if (addr >= memdata[lastp].right && addr < memdata[p].left)break;
  	} 
 	//这时, addr >= memdata[lastp].right
 	if (addr == memdata[lastp].right){
@@ -105,7 +107,7 @@ void mem_free(uint16_t addr, uint16_t freeSize){
 	}else{
 		//与上一个节点不融合
 		//lastp 可能为0
-		if (addr + freeSize >= memdata[p].left){
+		if (addr + freeSize >= memdata[p].left && p != MaxBlockNum){
 			//与p节点融合
 			memdata[p].left = addr;
 		}else{
