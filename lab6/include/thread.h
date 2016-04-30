@@ -3,6 +3,7 @@
 
 #include "pcb.h"
 #include "port.h"
+#include "memory.h"
 
 struct thread_t{
 	uint16_t tid;
@@ -24,11 +25,7 @@ uint8_t thread_create(thread_t *t, __attribute__((regparm(1)))void* (*func)(void
 		return 0; // 子进程返回0
 	}
 	uint8_t newID = FindEmptyPCB();
-	uint16_t PROG_SEG_S;
-	ReadPort(3,&PROG_SEG_S,sizeof(PROG_SEG_S));
-	uint16_t addrseg = PROG_SEGMENT + PROG_SEG_S;
-	PROG_SEG_S += 0x10; // 因为是以段计数的
-	WritePort(3,&PROG_SEG_S,sizeof(PROG_SEG_S));
+	uint16_t addrseg = allocate(0x10); 
 	//[ds:si] -> [es:di]
 	asm volatile("push ds;push si;push es;push di;"
 			"mov ds,ax;"
@@ -48,6 +45,8 @@ uint8_t thread_create(thread_t *t, __attribute__((regparm(1)))void* (*func)(void
 	// 注意, ID与RunID类型是不同的,db和dw
 	_p.ID = newID;
 	_p.SS = addrseg;
+	_p.SEG = addrseg;
+	_p.SSIZE = 0x10;
 	_p.PARENT_ID = runid;
 	_p.KIND = K_THREAD;
 	t->tid = newID;

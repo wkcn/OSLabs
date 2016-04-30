@@ -75,19 +75,29 @@ void ReadFloppy(uint16_t sectorID, uint8_t sectorNum, void *data){
 }
 
 
-void ls(){
+__attribute__((regparm(1)))
+int GetFileSize(char *filename){
 	char buf[512];
-	Entry e; // 效率需要
+	Entry e;
 	for (int i = 19;i < 19 + 14;++i){
 		ReadFloppy(i,1,buf);
 		for (int j = 0;j < 512/32;++j){
 			memcpy(&e,buf + j * 32,32);
-			PrintStr(e.DIR_Name,11);
-			if(e.DIR_Name[1] != 0)PrintStr(NEWLINE);
- 		}
- 	}
-} 
- 
+			bool can = true;
+			for (int k = 0;k < 11;++k){
+				if (filename[k] != e.DIR_Name[k]){
+					can = false;
+					break;
+			 	}
+			} 
+			if (!can)continue;
+			//FOUND_ENTRY
+			return e.DIR_FileSize;
+		}
+	}
+	return 0;
+}
+
 __attribute__((regparm(3)))
 int LoadFile(char *filename, uint16_t offset, uint16_t seg){
 	char buf[1024];

@@ -8,10 +8,12 @@
 //G++编译出来的压栈都是4字节的(32 bits), 但是我们的nasm是16位的:-(
 //16位G++的内嵌汇编的iret操作的是EFLAGS,ECS,EIP; 因此, 我们要将可爱的flags,cs,ip转为32位~
 //不带局部变量的函数
-#define CPP_INT_END asm volatile("sub ebp, 8;mov [ebp],ax;mov ax,[ebp+8];mov [ebp+2],ax;mov ax,[ebp+10];mov [ebp+4],ax;mov ax,[ebp+12];mov [ebp+6],ax;mov ax,[ebp+14];mov [ebp+10],ax;mov ax,[ebp+16];mov [ebp+14],ax;xor ax,ax;mov [ebp+8],ax;mov [ebp+12],ax;mov [ebp+16],ax;mov ax,[ebp];sub sp,6;pop ebp;iret;")
+//
+#define CPP_INT_END asm volatile("sub ebp, 8;mov [ebp],ax;mov ax,[ebp+8];mov [ebp+2],ax;mov ax,[ebp+10];mov [ebp+4],ax;mov ax,[ebp+12];mov [ebp+6],ax;mov ax,[ebp+14];mov [ebp+10],ax;mov ax,[ebp+16];mov [ebp+14],ax;xor ax,ax;mov [ebp+8],ax;mov [ebp+12],ax;mov [ebp+16],ax;mov ax,[ebp];sub esp,6;pop ebp;iret;")
 //带局部变量的函数(ebp保存原来的esp)
 //leave恢复esp(用ebp做备份), 计数 +8 -6
-#define CPP_INT_LEAVE asm volatile("sub ebp, 8;mov [ebp],ax;mov ax,[ebp+8];mov [ebp+2],ax;mov ax,[ebp+10];mov [ebp+4],ax;mov ax,[ebp+12];mov [ebp+6],ax;mov ax,[ebp+14];mov [ebp+10],ax;mov ax,[ebp+16];mov [ebp+14],ax;xor ax,ax;mov [ebp+8],ax;mov [ebp+12],ax;mov [ebp+16],ax;mov ax,[ebp];sub sp,6;leave;add esp, 2;iret;")
+//push ebp; mov ebp, esp; esp被修改, ebp没有被改
+#define CPP_INT_LEAVE asm volatile("sub ebp, 8;mov [ebp],ax;mov ax,[ebp+8];mov [ebp+2],ax;mov ax,[ebp+10];mov [ebp+4],ax;mov ax,[ebp+12];mov [ebp+6],ax;mov ax,[ebp+14];mov [ebp+10],ax;mov ax,[ebp+16];mov [ebp+14],ax;xor ax,ax;mov [ebp+8],ax;mov [ebp+12],ax;mov [ebp+16],ax;mov ax,[ebp];add ebp,2;mov esp,ebp;pop ebp;iret;")
 __attribute__((regparm(3)))
 void WriteIVT(uint16_t id,uint16_t offset,uint16_t cs){
 	asm volatile(

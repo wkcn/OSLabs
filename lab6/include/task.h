@@ -2,8 +2,8 @@
 #define _TASK_H_
 
 #include "io.h"
-#include "port.h"
 #include "pcb.h"
+#include "memory.h"
 
 uint8_t fork(){
 	asm volatile("int 0x21;int 0x08;"::"a"(0x0700)); // 关闭进程切换, 更新PCB值
@@ -17,11 +17,7 @@ uint8_t fork(){
 		return 0; // 子进程返回0
 	}
 	uint8_t newID = FindEmptyPCB();
-	uint16_t PROG_SEG_S;
-	ReadPort(3,&PROG_SEG_S,sizeof(PROG_SEG_S));
-	uint16_t addrseg = PROG_SEGMENT + PROG_SEG_S;
-	PROG_SEG_S += _p.SSIZE;
-	WritePort(3,&PROG_SEG_S,sizeof(PROG_SEG_S));
+	uint16_t addrseg = allocate(_p.SSIZE); 
 	//[ds:si] -> [es:di]
 	asm volatile("push ds;push si;push es;push di;"
 			"mov ds,ax;"

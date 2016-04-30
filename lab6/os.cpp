@@ -9,6 +9,8 @@ asm(".code16gcc\n");
 #include "include/version.h"
 #include "include/interrupt.h"
 #include "include/port.h"
+#include "include/memory.h"
+#include "include/os_memory.h"
 
 const char *OS_INFO = "MiraiOS 0.3";
 const char *PROMPT_INFO = "wkcn > ";
@@ -26,6 +28,7 @@ int parSize = 0;
 int batchList[5] = {5,1,2,3,4};
 int batchID = 0;
 int batchSize = 0;
+
 
 
 //extern "C" void WritePCB(uint16_t addr);
@@ -51,10 +54,11 @@ int RunProg(char *filename){
 	//addr = (char*)(((PROG_SEGMENT + PROG_SEGMENT_S) << 4) + 0x100); 
 	//uint16_t addrseg = (PROG_SEGMENT + PROG_SEGMENT_S); 
 	uint16_t offset = 0x100;
-	uint16_t addrseg = (PROG_SEGMENT + PROG_SEGMENT_S);
-	int si = LoadFile(filename,offset,addrseg);
-	if (si == 0)return 0;
+	int si = GetFileSize(filename);
 	uint16_t SSIZE = ((si + 0x100 + (1<<4) - 1) >> 4); 
+	uint16_t addrseg = allocate(SSIZE);//(PROG_SEGMENT + PROG_SEGMENT_S);
+	si = LoadFile(filename,offset,addrseg);
+	if (si == 0)return 0;
 	PROG_SEGMENT_S += SSIZE; 
 
 	//设置用户程序运行标志
@@ -367,10 +371,28 @@ bool NeedRetnShell(){
 	return (a && ShellMode);
 }
 
+
 void int_23h(){
-	PrintStr("I'm an interrupt written by C++", YELLOW);
-	PrintStr(NEWLINE);
-	CPP_INT_END;
+	/*
+	 * ah = 00h, 释放段地址bx， 段大小为cx的内存
+	 * ah = 01h, 申请段大小为cx的内存， 返回值为段地址
+	 */
+	//asm volatile("nop;nop;nop;nop;nop;nop;nop;nop;nop;nop;nop;nop;nop;nop;");
+	//asm volatile("mov ax, bx"::"b"(0x7000));
+	uint16_t ax;
+	uint16_t size;
+	uint16_t addr;
+	//CPP_INT_LEAVE;
+	asm volatile("":"=a"(ax),"=b"(addr),"=c"(size));
+	uint16_t ah = (ax & 0xFF00) >> 8;
+	if (ah == 0x00){
+		//释放内存
+		mem_free(addr,size);	
+	}else if (ah == 0x01){
+		addr = mem_allocate(size);
+		asm volatile("mov ax, bx;"::"b"(addr));
+	}
+	CPP_INT_LEAVE;
 }
 
 void int_24h(){
@@ -417,13 +439,22 @@ void int_24h(){
 	CPP_INT_LEAVE;
 }
 
+
+void int_25h(){
+	PrintStr("I'm an interrupt written by C++", YELLOW);
+	PrintStr(NEWLINE);
+	CPP_INT_END;
+}
+
 void WriteUserINT(){
 	WriteIVT(0x23,int_23h);
 	WriteIVT(0x24,int_24h);
+	WriteIVT(0x25,int_25h);
 }
 
 int main(){  
 	INIT_SEGMENT();
+	mem_init();
 	WriteUserINT();
 	SetPort(3,&PROG_SEGMENT_S,sizeof(PROG_SEGMENT_S));
 	SetPort(5,talkBuffer,talkBufSize);
