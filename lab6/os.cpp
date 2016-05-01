@@ -1,6 +1,3 @@
-//asm(".code16gcc\n");
-//asm("jmp 0:main");
-#include <stdint.h>
 #include "include/io.h"
 #include "include/string.h"
 #include "include/disk.h"
@@ -9,10 +6,9 @@
 #include "include/pcb.h"
 #include "include/interrupt.h"
 #include "include/port.h"
-#include "include/memory.h"
-#include "include/os_memory.h"
+#include "include/mem_base.h"
 
-const char *OS_INFO = "MiraiOS 0.3";
+const char *OS_INFO = "MiraiOS 0.4";
 const char *PROMPT_INFO = "wkcn > ";
 const char *NOPROG_INFO = "No User Process is Running!";
 const char *BATCH_INFO = "Batching Next Program: ";
@@ -29,6 +25,11 @@ int batchList[5] = {5,1,2,3,4};
 int batchID = 0;
 int batchSize = 0;
 
+//Kernel_Memory
+const uint16_t MaxBlockNum = 127;
+const uint16_t SPACE_SIZE = 0x4000; // 这里用段表示
+MemBlock memdata[MaxBlockNum + 1];
+MemRecord memRecord;
 
 
 //extern "C" void WritePCB(uint16_t addr);
@@ -47,14 +48,19 @@ void KillAll(){
 }
 
 __attribute__((regparm(1)))
-int RunProg(char *filename){
+int RunProg(char *filename, uint16_t allocatedSize = 0){
 	if (RunNum >= MaxRunNum)return 0;
-	//addr = (char*)(((PROG_SEGMENT + PROG_SEGMENT_S) << 4) + 0x100); 
 	//uint16_t addrseg = (PROG_SEGMENT + PROG_SEGMENT_S); 
 	uint16_t offset = 0x100;
 	uint16_t si = GetFileSize(filename);
-	uint16_t SSIZE = ((si + 0x100 + (1<<4) - 1) >> 4); 
-	uint16_t addrseg = allocate(SSIZE);//(PROG_SEGMENT + PROG_SEGMENT_S);
+	// if si + allocatedSize > 0xFFFF   =>   allocatedSize > 0xFFFF - si
+	if (allocatedSize > uint16_t(0xF000) - si){
+		si = 0xF000;
+	}else{
+		si += allocatedSize;
+	}
+	uint16_t SSIZE = uint16_t((si + 0x100 + (1<<4) - 1) >> 4); 
+	uint16_t addrseg = mem_allocate(memRecord,SSIZE);//(PROG_SEGMENT + PROG_SEGMENT_S);
 	if (addrseg == 0xFFFF){
 		PrintStr("Lack of Memory\r\n",RED);
 		return 0;
@@ -79,7 +85,7 @@ int RunProg(char *filename){
 			"pop si;"
 			"pop es;"
 			);
-	//WritePCB(addrseg);
+
 	uint8_t pcbID = FindEmptyPCB();
 	if (!pcbID)return 0;
 	_p.ID = pcbID; 
@@ -232,6 +238,7 @@ bool CommandMatch(const char* str){
 
 __attribute__((regparm(1)))
 int GetNum(int i){
+	//i = 0 为命令
 	//第一个参数 i = 1
 	int j = par[i][0];
 	int k = par[i][1];
@@ -374,7 +381,11 @@ void Execute(){
 			if (c >= 'a' && c <= 'z')c = c - 'a' + 'A';
 			filename[i] = c;
 		}
-		if(RunProg(filename)){
+		uint16_t allocatedSize = 0;
+		if (parSize > 1){
+			allocatedSize = GetNum(1);
+		}
+		if(RunProg(filename, allocatedSize)){
 			ShellMode = 1;
 		}else 
 			PrintInfo("Command not found, Input \'help\' to get more info",RED);
@@ -413,9 +424,9 @@ void int_23h(){
 	uint16_t ah = (ax & 0xFF00) >> 8;
 	if (ah == 0x00){
 		//释放内存
-		mem_free(addr,size);	
+		mem_free(memRecord,addr,size);	
 	}else if (ah == 0x01){
-		addr = mem_allocate(size);
+		addr = mem_allocate(memRecord,size);
 		asm volatile("mov ax, bx;"::"b"(addr));
 	}
 	CPP_INT_LEAVE;
@@ -480,9 +491,15 @@ void WriteUserINT(){
 	WriteIVT(0x25,int_25h);
 }
 
+void INIT_MEMORY(){
+	memRecord.data = memdata;
+	memRecord.MaxBlockNum = MaxBlockNum;
+	mem_init(memRecord, PROG_SEGMENT, PROG_SEGMENT + SPACE_SIZE); 
+}
+
 int main(){  
 	INIT_SEGMENT();
-	mem_init();
+	INIT_MEMORY();
 	WriteUserINT();
 	SetPort(5,talkBuffer,talkBufSize);
 	cls();
