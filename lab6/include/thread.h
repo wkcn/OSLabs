@@ -8,6 +8,7 @@ struct thread_t{
 	uint16_t tid;
 };
 
+uint8_t parentID; // 使用引用要放外面？
 __attribute__((regparm(3)))
 uint8_t thread_create(thread_t *t, __attribute__((regparm(1)))void* (*func)(void*), void *attr){
 	asm volatile("int 0x21;int 0x08;"::"a"(0x0700)); // 关闭进程切换, 更新PCB值
@@ -16,9 +17,12 @@ uint8_t thread_create(thread_t *t, __attribute__((regparm(1)))void* (*func)(void
 	asm volatile("int 0x21;":"=a"(runid):"a"(0x0200));
 	LoadPCB(runid); // note:IP!
 	if (_p.KIND == K_THREAD){
-		func(attr); // 执行函数
+		void *result = func(attr); // 执行函数
 		SetTaskState(runid, T_DEAD);
+		GetTaskAttr(runid, &_p.PARENT_ID, parentID);
+		SetTaskAttr(parentID, &_p.STATE, uint8_t(T_RUNNING)); // 让父亲返回RUNNING态
 		asm volatile("int 0x21;"::"a"(0x0800)); // 开启时钟
+		asm volatile("mov ax, bx;"::"b"((uint16_t)(unsigned long)result));
 		asm volatile("int 0x08;"); // 马上切到下一进程
 		while(1){}
 		return 0; // 子进程返回0
@@ -57,15 +61,19 @@ uint8_t thread_create(thread_t *t, __attribute__((regparm(1)))void* (*func)(void
 	asm volatile("int 0x21;"::"a"(0x0900)); // ++RunNum
 	asm volatile("int 0x21;"::"a"(0x0800)); // 开启进程切换
 	return newID;
-}
+} 
 
 
 __attribute__((regparm(2)))
 uint8_t thread_join(thread_t _t, void **_thread_retn){
 	INIT_SEGMENT();
 	uint16_t tid = _t.tid;
+	uint16_t runid;
+	asm volatile("int 0x21;":"=a"(runid):"a"(0x0200));
 	while(1){
 		if (GetTaskState(tid) == T_DEAD)break;
+		SetTaskAttr(runid, &_p.STATE, uint8_t(T_BLOCKED)); // 设置自己为阻塞态
+		asm volatile("int 0x08;"); // 马上切到下一进程
 	}
 	uint16_t ax;
 	GetTaskAttr(tid, &_p.AX, ax);	

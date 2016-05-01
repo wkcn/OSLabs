@@ -479,23 +479,28 @@ WKCNINTTimer:
 	mov ax, 0
 	jmp GoodUserProg
 
+	;可能是要执行的用户程序
 	MayExUserProg:
 	push ax
 	mul cx
 	mov si, ax
 	pop ax
-	cmp byte [es:(si + _STATE_OFFSET)], 1; Running
-	je GoodUserProg
 
-	cmp byte [es:(si + _STATE_OFFSET)], 3; Ready
-	jne DEAD_JUDGE
+	xor dx, dx
+	mov dl, byte [es:(si + _STATE_OFFSET)]
+	shl dx, 1
+	mov di, dx
+	jmp word [cs:(ProgState + di)]
+
+ProgState:
+	;EMPTY, RUNNING, SUSPEND, READY, DEAD, BLOCKED
+	dw FindUserProg, GoodUserProg, FindUserProg, ReadyState, DeadState, FindUserProg 
+
+ReadyState:
 	mov byte [es:(si + _STATE_OFFSET)], 1; Ready -> Running
-	;inc word [ds:RunNum]
 	jmp GoodUserProg
 
-	DEAD_JUDGE:
-	cmp byte [es:(si + _STATE_OFFSET)], 4; Dead
-	jne FindUserProg
+DeadState:
 	;Dead
 	cmp byte [es:(si + _KIND_OFFSET)], 2; 若等于则为线程 
 	jne KillCommonProg

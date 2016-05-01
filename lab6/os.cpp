@@ -204,6 +204,9 @@ void Top(){
 			case T_DEAD:
 				PrintStr("Dead",RED);
 				break;
+			case T_BLOCKED:
+				PrintStr("Blocked",YELLOW);
+				break;
 		}
 		PrintStr(NEWLINE);
 	}

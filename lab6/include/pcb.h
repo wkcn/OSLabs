@@ -39,7 +39,7 @@ struct Processes{
 const uint16_t PCBSize = sizeof(struct Processes);
 
 enum TASK_STATE{
-	T_EMPTY, T_RUNNING, T_SUSPEND, T_READY, T_DEAD = 4
+	T_EMPTY, T_RUNNING, T_SUSPEND, T_READY, T_DEAD = 4, T_BLOCKED
 };
 
 enum TASK_KIND{
@@ -104,7 +104,6 @@ void SetTaskAttr(uint8_t id, void *something, uint16_t value){
 
 __attribute__((regparm(3)))
 void GetTaskAttr(uint8_t id, void *something, uint8_t &value){
-
 	uint16_t offset = id * PCBSize + ((char*)something - (char*)&_p);
 	asm volatile(
 			"push es;"
