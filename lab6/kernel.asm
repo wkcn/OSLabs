@@ -666,6 +666,7 @@ Processes:
 	_NAME db "0123456789ABCDEF" ; 16 bytes
 	_KIND db 0
 	_PARENT_ID db 0
+	_BLOCK_NEXT db 0
 	_PRIORITY db 0
 	_SEG dw 0
 	_SSIZE dw 0

@@ -16,6 +16,7 @@ struct Processes{
 	db NAME[16];
 	db KIND; // 0: 普通进程, 1: forked进程, 2: 线程
 	db PARENT_ID;
+	db BLOCK_NEXT;
 	db PRIORITY;
 	dw SEG;
 	dw SSIZE;
@@ -192,5 +193,19 @@ void SetTaskState(uint8_t id, uint8_t toState, uint8_t fromState){
 	if (!id)return;
 	if (GetTaskState(id) == fromState)SetTaskState(id, toState);
 }
+
+uint16_t GetRunID(){
+	uint16_t runid;
+	asm volatile("int 0x21;":"=a"(runid):"a"(0x0200));
+	return runid;
+}
+
+#define ScheduleOFF	asm volatile("int 0x21;"::"a"(0x0700))
+
+#define Schedule asm volatile("int 0x08;")
+
+#define ScheduleON asm volatile("int 0x21;"::"a"(0x0800))
+
+#define INC_RunNum asm volatile("int 0x21;"::"a"(0x0900))
 
 #endif

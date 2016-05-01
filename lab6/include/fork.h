@@ -5,20 +5,20 @@
 #include "memory.h"
 
 uint8_t fork(){
-	asm volatile("int 0x21;int 0x08;"::"a"(0x0700)); // 关闭进程切换, 更新PCB值
 	INIT_SEGMENT();
-	uint16_t runid;
-	asm volatile("int 0x21;":"=a"(runid):"a"(0x0200));
+	ScheduleOFF;
+	Schedule;
+	uint16_t runid = GetRunID();
 	LoadPCB(runid); // note:IP!
 	if (_p.KIND == K_FORK){
 		SetTaskAttr(runid,&_p.KIND,uint8_t(K_PROG));
-		asm volatile("int 0x21;"::"a"(0x0800));
+		ScheduleON;
 		return 0; // 子进程返回0
 	}
 	uint8_t newID = FindEmptyPCB();
 	uint16_t addrseg = allocate(_p.SSIZE); 
 	if (addrseg == 0xFFFF){
-		asm volatile("int 0x21;"::"a"(0x0800)); // 开启进程切换
+		ScheduleON;
 		return 0xFF;
 	}
 	//[ds:si] -> [es:di]
@@ -47,8 +47,8 @@ uint8_t fork(){
 	_p.KIND = K_FORK;
 
 	WritePCB(newID);
-	asm volatile("int 0x21;"::"a"(0x0900)); // ++RunNum
-	asm volatile("int 0x21;"::"a"(0x0800)); // 开启进程切换
+	INC_RunNum;
+	ScheduleON;
 	return newID;
 }
 

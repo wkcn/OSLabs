@@ -7,6 +7,7 @@
 #include "include/interrupt.h"
 #include "include/port.h"
 #include "include/mem_base.h"
+#include "include/os_sem.h"
 
 const char *OS_INFO = "MiraiOS 0.4";
 const char *PROMPT_INFO = "wkcn > ";
@@ -99,6 +100,7 @@ int RunProg(char *filename, uint16_t allocatedSize = 0){
 	_p.SIZE = si;
 	_p.SSIZE = SSIZE; 
 	_p.PARENT_ID = 0;
+	_p.BLOCK_NEXT = 0;
 	_p.KIND = K_PROG;
 	_p.PRIORITY = 0;
 	_p.SEG = addrseg;
@@ -483,6 +485,29 @@ void int_24h(){
 
 void int_25h(){
 	CPP_INT_HEADER;
+	uint16_t ax;
+	asm volatile("":"=a"(ax));
+	uint16_t ah = (ax & 0xFF00) >> 8;
+	uint16_t al = (ax & 0x00FF);
+	/*
+	 * ah = 00h, 创建信号量，初始值为al
+	 * ah = 01h, semWait
+	 * ah = 02h, semSig
+	 * 以上sid为al
+	 */
+	if (ah == 0x00){
+		al = semCreate(al);
+		asm volatile("mov ax, bx;"::"b"(al));
+	}else if (ah == 0x01){
+		semWait(al);
+	}else if (ah == 0x02){
+		semSignal(al);
+	}
+	CPP_INT_LEAVE;
+}
+
+void int_26h(){
+	CPP_INT_HEADER;
 	PrintStr("I'm an interrupt written by C++", YELLOW);
 	PrintStr(NEWLINE);
 	CPP_INT_END;
@@ -492,6 +517,7 @@ void WriteUserINT(){
 	WriteIVT(0x23,int_23h);
 	WriteIVT(0x24,int_24h);
 	WriteIVT(0x25,int_25h);
+	WriteIVT(0x26,int_26h);
 }
 
 void INIT_MEMORY(){
@@ -503,6 +529,7 @@ void INIT_MEMORY(){
 int main(){  
 	INIT_SEGMENT();
 	INIT_MEMORY();
+	INIT_SEM();
 	WriteUserINT();
 	SetPort(5,talkBuffer,talkBufSize);
 	cls();
