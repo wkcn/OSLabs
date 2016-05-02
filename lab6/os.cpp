@@ -289,13 +289,23 @@ bool IsNum(int i){
 
 
 void PR(){
-		//pr id value
-		uint8_t id = GetNum(1);
-		if (GetTaskState(id) != T_EMPTY){
-			uint8_t value = GetNum(2);
-			if (value > 10)value = 10;
-			SetTaskAttr(id,&_p.PRIORITY,value);
-		}
+	//pr id value
+	uint8_t id = GetNum(1);
+	if (GetTaskState(id) != T_EMPTY){
+		uint8_t value = GetNum(2);
+		if (value > 10)value = 10;
+		SetTaskAttr(id,&_p.PRIORITY,value);
+	}
+}
+
+
+void State(){
+	//state id value
+	uint8_t id = GetNum(1);
+	if (GetTaskState(id) != T_EMPTY){
+		uint8_t value = GetNum(2);
+		SetTaskAttr(id,&_p.STATE,value);
+	}
 }
 
 void Execute(){  
@@ -365,6 +375,8 @@ void Execute(){
 		for(int q=1;q<parSize;++q)SetTaskState(GetNum(q),T_SUSPEND,T_RUNNING);
 	}else if(CommandMatch("pr")){
 		PR();
+	}else if(CommandMatch("state")){
+		State();
 	}else if(CommandMatch("mem")){
 		MEM();
 	}else if (IsNum(0)){
@@ -485,10 +497,11 @@ void int_24h(){
 
 void int_25h(){
 	CPP_INT_HEADER;
+	asm volatile("sti;");
 	uint16_t ax;
 	asm volatile("":"=a"(ax));
-	uint16_t ah = (ax & 0xFF00) >> 8;
-	uint16_t al = (ax & 0x00FF);
+	uint8_t ah = (ax & 0xFF00) >> 8;
+	int8_t al = (ax & 0x00FF);
 	/*
 	 * ah = 00h, 创建信号量，初始值为al
 	 * ah = 01h, semWait
@@ -496,11 +509,15 @@ void int_25h(){
 	 * 以上sid为al
 	 */
 	if (ah == 0x00){
-		al = semCreate(al);
-		asm volatile("mov ax, bx;"::"b"(al));
+		uint8_t sid = semCreate(al);
+		asm volatile("mov ax, bx;"::"b"((uint16_t)sid));
 	}else if (ah == 0x01){
 		semWait(al);
+		//PrintStr("wait");
+		//PrintNum(al);
 	}else if (ah == 0x02){
+		//PrintStr("sig");
+		//PrintNum(al);
 		semSignal(al);
 	}
 	CPP_INT_LEAVE;

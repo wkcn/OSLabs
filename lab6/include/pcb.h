@@ -200,12 +200,12 @@ uint16_t GetRunID(){
 	return runid;
 }
 
-#define ScheduleOFF	asm volatile("int 0x21;"::"a"(0x0700))
+#define ScheduleOFF	asm volatile("sti;int 0x21;"::"a"(0x0700))
 
-#define Schedule asm volatile("int 0x08;")
+#define Schedule asm volatile("sti;int 0x08;")
 
-#define ScheduleON asm volatile("int 0x21;"::"a"(0x0800))
+#define ScheduleON asm volatile("sti;int 0x21;"::"a"(0x0800))
 
-#define INC_RunNum asm volatile("int 0x21;"::"a"(0x0900))
+#define INC_RunNum asm volatile("sti;int 0x21;"::"a"(0x0900))
 
 #endif

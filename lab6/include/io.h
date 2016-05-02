@@ -90,7 +90,7 @@ void DrawText(const char *str,uint16_t r,uint16_t c,uint16_t color = 0x07){
 	}
 }
 
-__attribute__((regparm(2)))
+__attribute__((regparm(1)))
 void PrintChar(char ch, uint16_t color = 0x07){
 	//Use 10h interupt to get right cursor position
 	uint16_t ocp = GetCursor();
@@ -130,17 +130,17 @@ __attribute__((regparm(1)))
 int PrintNum(int num, uint16_t color = WHITE){
 	char temp[16];
 	if (num < 0){
-		PrintChar('-');
+		PrintChar('-', color);
 		num = -num;
 	}
-	int i = 0;
+	int8_t i = 0;
 	do{
 		temp[i] = num % 10;
 		num /= 10;
 		++i;
-	}while(num > 0);
+	}while(num > 0 && i < 16);
 
-	for (int j = i - 1;j >= 0;--j){
+	for (int8_t j = i - 1;j >= 0;--j){
 		PrintChar(temp[j] + '0', color);
 	}
 	return i;

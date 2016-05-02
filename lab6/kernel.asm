@@ -126,7 +126,7 @@ WKCNINTKeyBoard:
 	mov al,1
 	xor byte [es:INT09H_FLAG], al
 
-	sti
+	;sti
 	pushf
 	call far [es:INT09HORG]
 
@@ -399,7 +399,7 @@ CLOSE_MSG:
 	iret
 
 WKCNINTTimer:
-	;cli
+	cli
 	;Save current Progress
 	;System Stack: *\flags\cs\ip
 	push ds
@@ -610,7 +610,7 @@ LOAD_PCB:
 	out 20h,al
 	out 0A0h,al
 	pop ax
-	;sti
+	sti
 
 	iret
 

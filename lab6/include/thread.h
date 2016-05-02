@@ -76,6 +76,7 @@ uint8_t thread_join(thread_t _t, void **_thread_retn){
 	}
 	uint16_t ax;
 	GetTaskAttr(tid, &_p.AX, ax);	
+	//SetTaskAttr(tid, &_p.KIND, (uint8_t)K_PROG); // 设为普通程序， 并杀死
 	if (_thread_retn)*_thread_retn = (void*)(long)ax;
 	return tid;
 }

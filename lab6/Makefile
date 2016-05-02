@@ -38,7 +38,7 @@ build_progs: wkcn1.com wkcn2.com wkcn3.com wkcn4.com kan.com\
    			hello.com bs.com bpb.com ls.com help.com\
 			box.com ouch.com clock.com\
 		   	testint.com testport.com fork1.com fork2.com alpha.com\
-			mat.com testnew.com letter.com
+			mat.com testnew.com letter.com fruit.com
 
 	mount -o loop $(BUILD_DIR)/disk.img disk/
 
@@ -55,6 +55,8 @@ kernel.bin: kernel.o os.o
 	$(LD) $(LDFLAGS) -Ttext 0x7e00 --oformat binary $(BUILD_DIR)/kernel.o $(BUILD_DIR)/os.o -o $(BUILD_DIR)/$@
 
 
+%.s: %.cpp
+	$(CC) $(CFLAGS) -S $< -o $(BUILD_DIR)/$@ 
 %.o: %.c
 	$(CC) $(CFLAGS) $< -o $(BUILD_DIR)/$@ 
 %.o: %.cpp
