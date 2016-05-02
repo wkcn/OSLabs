@@ -494,21 +494,19 @@ DeadState:
 	push bx
 	push ax
 
-
+	;释放进程所占内存
 	mov ax, 0
 	mov bx, word [es:(si + _SEG_OFFSET)]
 	mov cx, word [es:(si + _SSIZE_OFFSET)]
+	sti
+	int 23h
 
-	push di
-	pushf
-	mov di, 23h * 4
-	call dword [cs:di]
-	pop di
-
+	;清除信号量
 	mov ah, 05h
-	mov al, byte [cs:RunID] ; 清除信号量
+	mov al, byte [es:(si + _ID_OFFSET)]
 	sti
 	int 25h
+
 	mov byte [es:(si + _STATE_OFFSET)], 0
 	dec word [ds:RunNum]
 
