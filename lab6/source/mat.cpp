@@ -1,5 +1,5 @@
-#include "include/io.h"
-#include "include/thread.h"
+#include "io.h"
+#include "thread.h"
 
 const int M = 3;
 const int K = 2;

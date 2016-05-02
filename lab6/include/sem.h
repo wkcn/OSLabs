@@ -50,4 +50,10 @@ uint8_t semCreate(int8_t count){
 	return sid;
 }
 
+__attribute__((regparm(1)))
+void semDel(uint8_t sid){
+	uint16_t ax = 0x0400 | sid;
+	asm volatile("int 0x25"::"a"(ax));
+}
+
 #endif

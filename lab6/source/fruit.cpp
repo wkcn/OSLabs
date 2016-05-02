@@ -1,6 +1,6 @@
-#include "include/io.h"
-#include "include/thread.h"
-#include "include/sem.h"
+#include "io.h"
+#include "thread.h"
+#include "sem.h"
 
 uint16_t count = 0;
 uint8_t sid;

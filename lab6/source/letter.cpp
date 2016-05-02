@@ -1,5 +1,5 @@
-#include "include/io.h"
-#include "include/thread.h"
+#include "io.h"
+#include "thread.h"
 
 char str[80]="129djwqhdsajd128dw9i39ie93i8494urjoiew98kdkd";
 int LetterNr=0;

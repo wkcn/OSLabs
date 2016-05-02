@@ -1,7 +1,8 @@
 BUILD_DIR = build
 DISK_DIR = disk
 KITS_DIR = kits
-IMAGE_NAME=disk.img
+SOURCE_DIR = source
+IMAGE_NAME= MiraiOS.img
 CC = g++
 CFLAGS = -Iinclude -c -m16 -march=i386 -masm=intel -nostdlib -ffreestanding -mpreferred-stack-boundary=2 -lgcc -shared -std=c++11 -Wno-int-to-void-pointer-cast -fpermissive
 
@@ -26,21 +27,22 @@ build_dir:
 	./counter
 
 write_image: loadknl.bin
-	dd if=/dev/zero of=$(BUILD_DIR)/disk.img count=2880
-	dd if=$(BUILD_DIR)/loadknl.bin of=$(BUILD_DIR)/disk.img conv=notrunc
+	dd if=/dev/zero of=$(IMAGE_NAME) count=2880
+	dd if=$(BUILD_DIR)/loadknl.bin of=$(IMAGE_NAME) conv=notrunc
 
 write_knl: kernel.bin
-	mount -o loop $(BUILD_DIR)/disk.img disk/
+	mount -o loop $(IMAGE_NAME) disk/
 	cp $(BUILD_DIR)/kernel.bin $(DISK_DIR)/
 	umount $(DISK_DIR)/
 
 build_progs: wkcn1.com wkcn2.com wkcn3.com wkcn4.com kan.com\
-   			hello.com bs.com bpb.com ls.com help.com\
-			box.com ouch.com clock.com\
-		   	testint.com testport.com fork1.com fork2.com alpha.com\
-			mat.com testnew.com letter.com fruit.com
+   			bs.com bpb.com ls.com help.com\
+			box.com\
+		   	testint.com testport.com testnew.com\
+			fork1.com fork2.com alpha.com\
+			mat.com letter.com fruit.com
 
-	mount -o loop $(BUILD_DIR)/disk.img disk/
+	mount -o loop $(IMAGE_NAME) disk/
 
 	for name in $^; do\
 		cp $(BUILD_DIR)/$$name $(DISK_DIR)/;\
@@ -48,7 +50,7 @@ build_progs: wkcn1.com wkcn2.com wkcn3.com wkcn4.com kan.com\
 
 	umount $(DISK_DIR)/
 
-loadknl.bin: loadknl.asm
+loadknl.bin: $(SOURCE_DIR)/loadknl.asm
 	$(AS) $(ASFLAGS) -f bin $^ -o $(BUILD_DIR)/$@
 
 kernel.bin: kernel.o os.o
@@ -59,19 +61,18 @@ kernel.bin: kernel.o os.o
 	$(CC) $(CFLAGS) -S $< -o $(BUILD_DIR)/$@ 
 %.o: %.c
 	$(CC) $(CFLAGS) $< -o $(BUILD_DIR)/$@ 
-%.o: %.cpp
+%.o: $(SOURCE_DIR)/%.cpp
 	$(CC) $(CFLAGS) $< -o $(BUILD_DIR)/$@ 
-%.o: %.asm
+%.o: $(SOURCE_DIR)/%.asm
 	$(AS) $(ASFLAGS) -f elf32 $^ -o $(BUILD_DIR)/$@
 %.com: %.o header.o
 	#$(LD) $(LDFLAGS) -Ttext 0x100 --oformat binary $(BUILD_DIR)/header.o $(BUILD_DIR)/$< -o $(BUILD_DIR)/$@
-	$(LD) $(LDFLAGS) -T linker_100.ld --oformat binary $(BUILD_DIR)/header.o $(BUILD_DIR)/$< -o $(BUILD_DIR)/$@
-%.com: %.asm
+	$(LD) $(LDFLAGS) -T $(SOURCE_DIR)/linker_100.ld --oformat binary $(BUILD_DIR)/header.o $(BUILD_DIR)/$< -o $(BUILD_DIR)/$@
+%.com: $(SOURCE_DIR)/%.asm
 	$(AS) $(ASFLAGS) -f bin $^ -o $(BUILD_DIR)/$@
-	#$(LD) $(LDFLAGS) -Ttext 0x0100 $(BUILD_DIR)/$^ -o $(DISK_DIR)/$@ 
 
 qemu:
-	$(QEMU) $(QEMUFLAGS) $(BUILD_DIR)/disk.img
+	$(QEMU) $(QEMUFLAGS) $(IMAGE_NAME)
 
 run: qemu
 

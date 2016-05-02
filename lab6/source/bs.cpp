@@ -1,5 +1,5 @@
-#include "include/io.h"
-#include "include/disk.h"
+#include "io.h"
+#include "disk.h"
 
 FAT12Header header;
 int main(){

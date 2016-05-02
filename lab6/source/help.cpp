@@ -1,4 +1,4 @@
-#include "include/io.h"
+#include "io.h"
 
 const char *HELP_INFO = "\
 Input a 1~5 for parallel running. A stream nums for serial running \n\r\

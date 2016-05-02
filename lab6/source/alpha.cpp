@@ -1,5 +1,5 @@
-#include "include/fork.h"
-#include "include/io.h"
+#include "fork.h"
+#include "io.h"
 
 char str[64] = "WhAlE aNd MoBuLA";
 int main(){

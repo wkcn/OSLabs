@@ -1,13 +1,13 @@
-#include "include/io.h"
-#include "include/string.h"
-#include "include/disk.h"
-#include "include/keyboard.h"
-#include "include/version.h"
-#include "include/pcb.h"
-#include "include/interrupt.h"
-#include "include/port.h"
-#include "include/mem_base.h"
-#include "include/os_sem.h"
+#include "io.h"
+#include "string.h"
+#include "disk.h"
+#include "keyboard.h"
+#include "version.h"
+#include "pcb.h"
+#include "interrupt.h"
+#include "port.h"
+#include "mem_base.h"
+#include "os_sem.h"
 
 const char *OS_INFO = "MiraiOS 0.5";
 const char *PROMPT_INFO = "wkcn > ";
@@ -507,6 +507,10 @@ void int_25h(){
 		//PrintStr("sig");
 		//PrintNum(al);
 		semSignal(al);
+	}else if (ah == 0x04){
+		semDel(al);
+	}else if (ah == 0x05){
+		semRelease(al); // 根据RunID删除
 	}
 	CPP_INT_LEAVE;
 }

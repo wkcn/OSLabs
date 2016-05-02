@@ -1,5 +1,5 @@
-#include "include/io.h"
-#include "include/memory.h"
+#include "io.h"
+#include "memory.h"
 
 int main(){
 	mem_init();

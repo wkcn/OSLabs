@@ -19,17 +19,14 @@ UpdateTimes equ 20
 
 ;写入中断向量表
 %macro WriteIVT 2
-	mov ax,0000h
-	mov es,ax
-
 	mov ax,%1
 	mov bx,4
 	mul bx
 	mov si,ax
 	mov ax,%2
-	mov [es:si],ax ; offset
+	mov [cs:si],ax ; offset
 	mov ax,cs
-	mov [es:si + 2],ax
+	mov [cs:si + 2],ax
 %endmacro
 
 ;Init
@@ -39,11 +36,9 @@ UpdateTimes equ 20
 	mov ss, ax
 	mov sp, 7c00h
 
-	mov ax, cs
-	mov es, ax
-	mov ax, [es:09h * 4]
+	mov ax, [cs:09h * 4]
 	mov word [INT09HORG], ax
-	mov ax, [es:09h * 4 + 2]
+	mov ax, [cs:09h * 4 + 2]
 	mov word [INT09HORG + 2], ax
 
 	WriteIVT 08h,WKCNINTTimer ; Timer Interupt
@@ -84,19 +79,15 @@ _start:
 %macro IVT_INFO 2
 ; 中断号, 中断信号量
 _INT_%1:
-	push es
 	push ax
-	mov ax, cs
-	mov es, ax
 	mov ax, %2
 WAIT_INT_INFO_ZERO_%1: 
 	sti
-	cmp word [es:INT_INFO], 0
+	cmp word [cs:INT_INFO], 0
 	jne WAIT_INT_INFO_ZERO_%1
 
-	mov [es:INT_INFO], ax
+	mov [cs:INT_INFO], ax
 	pop ax
-	pop es
 	iret
 %endmacro
 
@@ -117,21 +108,16 @@ IVT_INFO 36h,4
 
 ;键盘中断
 WKCNINTKeyBoard:	
-	push es
 	push ax
 
-	mov ax, cs
-	mov es, ax
-
 	mov al,1
-	xor byte [es:INT09H_FLAG], al
+	xor byte [cs:INT09H_FLAG], al
 
 	;sti
 	pushf
-	call far [es:INT09HORG]
+	call far [cs:INT09HORG]
 
 	pop ax
-	pop es
 	iret
 
 WKCNINT20H:
@@ -174,12 +160,9 @@ WKCNINT21H:
 	;AH = 07h, 停止时钟
 	;AH = 08h, 开启时钟
 	;AH = 09h, ++RunNum
-	push es
 	push dx
 	push cx
 	push bx
-	mov bx, cs
-	mov es, bx
 
 	;判断是否有效
 	cmp ah, 0x09
@@ -192,24 +175,26 @@ WKCNINT21H:
 
 	;AH = 00h
 	TabShellMode:
-	mov word[es:ShellMode], ax; 已知ax高位为0
+	mov word[cs:ShellMode], ax; 已知ax高位为0
 	jmp INT21HEND
 
 	;AH = 01h
 	TabProgState:
 	mov dl, al
-	mov ax, [es:RunID] 
+	mov ax, [cs:RunID] 
 	mov bx, PCBSize
 	mul bx
 	mov bx, ax
 	mov ax, PCB_SEGMENT
+	push es
 	mov es, ax
 	mov byte[es:(bx + _STATE_OFFSET)], dl
+	pop es
 	jmp INT21HEND
 
 	;AH = 02h
 	GetRunID:
-	mov ax, [es:RunID]
+	mov ax, [cs:RunID]
 	jmp INT21HEND
 
 	RETN_PCB_S:
@@ -229,21 +214,15 @@ WKCNINT21H:
 	jmp INT21HEND
 
 	STOP_CLOCK:
-	mov ax, cs
-	mov es, ax
-	mov byte[es:CLOCKON],0
+	mov byte[cs:CLOCKON],0
 	jmp INT21HEND
 
 	START_CLOCK:
-	mov ax, cs
-	mov es, ax
-	mov byte[es:CLOCKON],1
+	mov byte[cs:CLOCKON],1
 	jmp INT21HEND
 
 	INC_RUNNUM:
-	mov ax, cs
-	mov es, ax
-	inc word[es:RunNum] 
+	inc word[cs:RunNum] 
 	jmp INT21HEND
 
 	INT21HEND:
@@ -251,7 +230,6 @@ WKCNINT21H:
 	pop bx
 	pop cx
 	pop dx
-	pop es
 	iret
 
 INT22HJMPLIST:
@@ -524,6 +502,10 @@ DeadState:
 	call dword [cs:di]
 	pop di
 
+	sti
+	mov ah, 05h
+	mov al, byte [cs:RunID] ; 清除信号量
+	int 25h
 	mov byte [es:(si + _STATE_OFFSET)], 0
 	dec word [ds:RunNum]
 

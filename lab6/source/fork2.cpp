@@ -1,5 +1,5 @@
-#include "include/io.h"
-#include "include/fork.h"
+#include "io.h"
+#include "fork.h"
 
 ostream cout;
 int main(){  

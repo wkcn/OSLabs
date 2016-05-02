@@ -12,6 +12,7 @@ struct sem{
 	uint8_t flag; // bool 也会变为1字节
 	int8_t count;
 	uint8_t next;
+	uint8_t runid; // 释放信号用
 };
 
 const uint8_t MaxSemNum = 128;
@@ -24,12 +25,7 @@ void semWait(uint8_t sid){
 	uint16_t ax = 1;
 	while(1){
 		//原子交换
-		uint16_t cs;
-		asm volatile("mov ax, cs;":"=a"(cs));
-		asm volatile("push es;mov es, cx;"
-					"lock xchg es:[bx],al;"
-					"pop es;"
-					:"=a"(ax):"b"(&sems[sid].flag),"a"(ax),"c"(cs));
+		asm volatile("lock xchg cs:[bx],al;":"=a"(ax):"b"(&sems[sid].flag),"a"(ax));
 		if ((ax&0x00FF) == 1)continue;
 		break;
 	}
@@ -68,11 +64,7 @@ void semSignal(uint8_t sid){
 	uint16_t ax = 1;
 	while(1){
 		//原子交换
-		uint16_t cs;
-		asm volatile("mov ax, cs;":"=a"(cs));
-		asm volatile("push es;mov es, cx;"
-				"lock xchg es:[bx],al;"
-				"pop es;":"=a"(ax):"b"(&sems[sid].flag),"a"(ax),"c"(cs));
+		asm volatile("lock xchg cs:[bx],al;":"=a"(ax):"b"(&sems[sid].flag),"a"(ax));
 		if ((ax&0x00FF) == 1)continue;
 		break;
 	}
@@ -98,10 +90,26 @@ uint8_t semCreate(int8_t count){
 			sems[i].count = count;
 			sems[i].next = 0;
 			sems[i].flag = 0;
+			sems[i].runid = GetRunID();
 			return i;
 		}
 	}
 	return 0xFF;
+}
+
+__attribute__((regparm(1)))
+void semDel(uint8_t sid){
+	sems[sid].used = false;
+}
+
+
+__attribute__((regparm(1)))
+void semRelease(uint8_t runid){
+	for (uint8_t i = 0;i < MaxSemNum;++i){
+		if (sems[i].used && sems[i].runid == runid){
+			sems[i].used = false;
+		}
+	}
 }
 
 void INIT_SEM(){

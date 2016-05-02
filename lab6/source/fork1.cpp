@@ -1,5 +1,5 @@
-#include "include/io.h"
-#include "include/fork.h"
+#include "io.h"
+#include "fork.h"
 
 int main(){
 	if (fork() == 0){

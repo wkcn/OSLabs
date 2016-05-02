@@ -1,5 +1,4 @@
-#include "include/io.h"
-//#include "include/disk.h"
+#include "io.h"
 
 #pragma pack (1) // 按1字节对齐
 struct FAT12Header{
