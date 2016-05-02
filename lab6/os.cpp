@@ -9,7 +9,7 @@
 #include "include/mem_base.h"
 #include "include/os_sem.h"
 
-const char *OS_INFO = "MiraiOS 0.4";
+const char *OS_INFO = "MiraiOS 0.5";
 const char *PROMPT_INFO = "wkcn > ";
 const char *NOPROG_INFO = "No User Process is Running!";
 const char *BATCH_INFO = "Batching Next Program: ";
@@ -298,16 +298,6 @@ void PR(){
 	}
 }
 
-
-void State(){
-	//state id value
-	uint8_t id = GetNum(1);
-	if (GetTaskState(id) != T_EMPTY){
-		uint8_t value = GetNum(2);
-		SetTaskAttr(id,&_p.STATE,value);
-	}
-}
-
 void Execute(){  
 	if (bufSize <= 0)return;
 	batchSize = 0;
@@ -375,8 +365,6 @@ void Execute(){
 		for(int q=1;q<parSize;++q)SetTaskState(GetNum(q),T_SUSPEND,T_RUNNING);
 	}else if(CommandMatch("pr")){
 		PR();
-	}else if(CommandMatch("state")){
-		State();
 	}else if(CommandMatch("mem")){
 		MEM();
 	}else if (IsNum(0)){
