@@ -441,6 +441,9 @@ WKCNINTTimer:
 
 	cmp byte [ds:CLOCKON], 1
 	jne GoodUserProg ; 不等于1, 说明切换关闭
+	;假如不是Running态, 不能继续运行
+	cmp byte [es:(bx + _STATE_OFFSET)], 1
+	jne FindUserProg
 	mov dl, byte [ds:PRIORITY_COUNT]
 	inc byte [ds:PRIORITY_COUNT]
 	;bx 还是之前程序的PCB偏移
@@ -502,9 +505,9 @@ DeadState:
 	call dword [cs:di]
 	pop di
 
-	sti
 	mov ah, 05h
 	mov al, byte [cs:RunID] ; 清除信号量
+	sti
 	int 25h
 	mov byte [es:(si + _STATE_OFFSET)], 0
 	dec word [ds:RunNum]
