@@ -57,22 +57,6 @@ int RunProg(char *filename, uint16_t allocatedSize = 0){
 		return 0;
 	}
 
-	//设置用户程序运行标志
-	asm volatile(
-			"push es;"
-			"push si;"
-			"push ax;"
-			"mov ax, 0x00;"
-			"mov es, ax;"
-			"mov ax, 0x7c00;"
-			"mov si, ax;"
-			"mov ax, 0;"
-			"mov es:[si],ax;"
-			"pop ax;"
-			"pop si;"
-			"pop es;"
-			);
-
 	uint8_t pcbID = FindEmptyPCB();
 	if (!pcbID)return 0;
 	_p.ID = pcbID; 
@@ -196,71 +180,6 @@ void top(){
 	Top();
 }
 
-void uname(){
-	PrintStr(OS_INFO,LGREEN);
-	PrintStr(" #",LGREEN);
-	PrintNum(RELEASE_TIMES,LGREEN);
-	PrintStr(NEWLINE);
-}
-__attribute__((regparm(2)))
-void PrintInfo(const char* str, uint16_t color){
-	PrintStr(PROMPT_INFO,LCARM);
-	PrintStr(str,color);
-	PrintStr(NEWLINE,color);
-}
-
-__attribute__((regparm(1)))
-bool CommandMatch(const char* str){
-	return (!strcmp(buf + par[0][0], str));
-}
-
-__attribute__((regparm(1)))
-int GetNum(int i){
-	//i = 0 为命令
-	//第一个参数 i = 1
-	int j = par[i][0];
-	int k = par[i][1];
-	int res = 0;
-	if (buf[k-1] == 'h' || buf[k-1] == 'H'){
-		k--;
-		for (;j<k;++j){
-			char c = buf[j];
-			res *= 16;
-			if (c >= '0' && c <= '9'){
-				res += c - '0';
-			}else if (c >= 'A' && c <= 'F'){
-				res += c - 'A' + 10;
-			}else if (c >= 'a' && c <= 'f'){
-				res += c - 'a' + 10;
-			}
-		}
-	}else{
-		for (;j<k;++j){
-			char c = buf[j];
-			res = res * 10 + c - '0';
-		}
-	}
-	return res;
-}
-
-__attribute__((regparm(1)))
-bool IsNum(int i){
-	int j = par[i][0];
-	int k = par[i][1];
-	if (j >= k)return false;
-	bool hex = false;
-	if (buf[k-1] == 'h' || buf[k-1] == 'H'){
-		hex = true;
-		k--;
-	}
-	for (;j<k;++j){
-		char c = buf[j];
-		if (c < '0' || c > '9' || (hex && ((c >='a' && c<='f') || (c >= 'A' && c <= 'F'))))return false;
-	}
-	return true;
-}
-
-
 void PR(){
 	//pr id value
 	uint8_t id = GetNum(1);
@@ -277,18 +196,41 @@ void int_23h(){
 	 * ah = 00h, 释放段地址bx， 段大小为cx的内存
 	 * ah = 01h, 申请段大小为cx的内存， 返回值为段地址
 	 */
-	uint16_t ax;
-	uint16_t size;
-	uint16_t addr;
-	asm volatile("":"=a"(ax),"=b"(addr),"=c"(size));
+	/*
+	 * ah = 0x10h, RunProg 偏移量bx, 分配内存大小cx, 段地址dx
+	 */
+	uint16_t ax,bx,cx,dx;
+	asm volatile("":"=a"(ax),"=b"(bx),"=c"(cx),"=d"(dx));
+	char filename[11];
 	uint16_t ah = (ax & 0xFF00) >> 8;
-	if (ah == 0x00){
-		//释放内存
-		mem_free(memRecord,addr,size);	
-	}else if (ah == 0x01){
-		addr = mem_allocate(memRecord,size);
-		asm volatile("mov ax, bx;"::"b"(addr));
-	}
+	switch(ah){
+		case 0x00:
+			//释放内存
+			mem_free(memRecord,bx,cx);	
+			break;
+		case 0x01:
+			bx = mem_allocate(memRecord,cx);
+			asm volatile("mov ax, bx;"::"b"(bx));
+			break;
+		case 0x10:
+			//拷贝文件名
+			asm volatile(
+			"push es;push si;"
+			"mov es, dx;"
+			"mov si, ax;"
+			"COPY_FILENAME:;"
+			"mov al, [es:bx];"
+			"mov [ds:si], al;"
+			"inc bx;inc si;"
+			"loop COPY_FILENAME;"
+			"pop si;pop es;"
+			:
+			:"a"(filename),"b"(bx),"c"(11),"d"(dx)
+			);
+			asm volatile("sti;");
+			RunProg(filename, cx);
+			break;
+	};
 	CPP_INT_LEAVE;
 }
 
@@ -378,9 +320,9 @@ void int_26h(){
 }
 
 void WriteUserINT(){
-	WriteIVT(0x23,int_23h);
-	WriteIVT(0x24,int_24h);
-	WriteIVT(0x25,int_25h);
+	WriteIVT(0x23,int_23h); // 系统主要调用
+	WriteIVT(0x24,int_24h); // 大小写
+	WriteIVT(0x25,int_25h); // 信号量
 	WriteIVT(0x26,int_26h);
 }
 

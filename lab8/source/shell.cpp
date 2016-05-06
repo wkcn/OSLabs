@@ -3,6 +3,7 @@
 #include "disk.h"
 #include "keyboard.h"
 #include "version.h"
+#include "pcb.h"
 
 const char *OS_INFO = "MiraiOS 0.5";
 const char *PROMPT_INFO = "wkcn > ";
@@ -21,9 +22,6 @@ int batchList[5] = {5,1,2,3,4};
 int batchID = 0;
 int batchSize = 0;
 
-void KillAll(){
-	
-}
 
 __attribute__((regparm(1)))
 int RunProg(char *filename, uint16_t allocatedSize = 0){
@@ -32,12 +30,22 @@ int RunProg(char *filename, uint16_t allocatedSize = 0){
 
 __attribute__((regparm(1)))
 int RunProg(int i){
-	return 0;
+	if (i == 5){
+		char f[12] = "KAN     COM";
+		return RunProg(f);
+	}
+	char filename[12] = "WKCN1   COM";
+	filename[4] = i + '0';
+	cls();
+	SetAllTask(T_RUNNING, T_SUSPEND);
+	return RunProg(filename);
+}
+
+void KillAll(){
+	
 }
 
 void MEM(){}
-
-void Top(){}
 
 void top(){}
 
