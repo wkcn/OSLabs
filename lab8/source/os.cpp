@@ -9,22 +9,8 @@
 #include "mem_base.h"
 #include "os_sem.h"
 
-const char *OS_INFO = "MiraiOS 0.5";
-const char *PROMPT_INFO = "wkcn > ";
-const char *NOPROG_INFO = "No User Process is Running!";
-const char *BATCH_INFO = "Batching Next Program: ";
-const char *LS_INFO = "Please Input These Number to Run a Program or more :-)\n\r1,2,3,4 - 45 angle fly char\n\r5 Draw my name";
-
-const uint16_t maxBufSize = 128;
-char buf[maxBufSize]; // 指令流
 const uint16_t talkBufSize = 128;
 char talkBuffer[talkBufSize];
-int bufSize = 0;
-int par[16][2];
-int parSize = 0;
-int batchList[5] = {5,1,2,3,4};
-int batchID = 0;
-int batchSize = 0;
 
 //Kernel_Memory
 const uint16_t MaxBlockNum = 127;
@@ -113,19 +99,6 @@ int RunProg(char *filename, uint16_t allocatedSize = 0){
 	WritePCB(pcbID);
 	++RunNum;
 	return si;
-}
-
-__attribute__((regparm(1)))
-int RunProg(int i){
-	if (i == 5){
-		char f[12] = "KAN     COM";
-		return RunProg(f);
-	}
-	char filename[12] = "WKCN1   COM";
-	filename[4] = i + '0';
-	cls();
-	SetAllTask(T_RUNNING, T_SUSPEND);
-	return RunProg(filename);
 }
 
 void MEM(){
@@ -298,124 +271,6 @@ void PR(){
 	}
 }
 
-void Execute(){  
-	if (bufSize <= 0)return;
-	batchSize = 0;
-	batchID = 0;
-	for (int i = 0;i < bufSize && batchSize < 5;++i){
-		char c = buf[i];
-		int y = c - '0';
-		if (y >= 1 && y <= 5){
-			batchList[batchSize++] = y;
-		}else{
-			if (c != ' ')break;
-		}
-	}
-	if (batchSize == 1){
-		batchSize = 0;
-	}
-	if (batchSize >= 2){
-		return;
-	}
-	buf[bufSize] = ' ';
-	//以空格为分隔符号,最多十六个参数
-	int i,j;
-	i = 0; j = 0;
-	while (i < 16 && j < bufSize){
-		for (;buf[j] == ' ' && j < bufSize;++j){
-			buf[j] = 0;
-		}
-		par[i][0] = j;
-		for (;buf[j] != ' ' && j < bufSize;++j);
-		if (buf[j] == ' ')buf[j] = 0;
-		par[i][1] = j;
-		if (par[i][1] <= par[i][0])break;
-		++j;
-		++i;
-		parSize = i;
-	}
-	if (CommandMatch("uname")){
-		uname();
-	}else if (CommandMatch("top")){
-		top();
-	}else if (CommandMatch("cls")){
-		cls();
-	}else if (CommandMatch("r")){
-		if(RunNum > 1){
-			ShellMode = 1;
-			SetAllTask(T_RUNNING,T_SUSPEND);
-			cls();
-		}else{
-			PrintInfo(NOPROG_INFO, RED);
-		}
-	}else if(CommandMatch("killall")){
-		KillAll();
-		cls();
-	}else if(CommandMatch("k") || CommandMatch("kill")){
-		for(int q=1;q<parSize;++q)KillTask(GetNum(q));
-	}else if(CommandMatch("wake")){
-		for(int q=1;q<parSize;++q)SetTaskState(GetNum(q),T_RUNNING,T_SUSPEND);
-	}else if(CommandMatch("int")){
-		uint16_t id = GetNum(1);
-		if (false &&  !(id >= 0x33 && id <= 0x36)){
-			PrintStr("Sorry, You are allowed to use int 33 to int 36!\r\n",RED);
-		}else
-			ExecuteINT(id);
-	}else if(CommandMatch("suspend")){
-		for(int q=1;q<parSize;++q)SetTaskState(GetNum(q),T_SUSPEND,T_RUNNING);
-	}else if(CommandMatch("pr")){
-		PR();
-	}else if(CommandMatch("mem")){
-		MEM();
-	}else if (IsNum(0)){
-		for (int k = 0;k < parSize && buf[k];++k){
-			char c = buf[k];
-			int y = c - '0';
-			if (y >= 1 && y <=5){
-				RunProg(y);
-			}
-		}
-		//CLS();
-		ShellMode = 1;
-	}else{
-		//Check File
-		char filename[12] = "        COM";
-		for (int i = 0;i < 11;++i){
-			char c = buf[i];
-			if (c == '.' || c == 0)break;
-			if (c >= 'a' && c <= 'z')c = c - 'a' + 'A';
-			filename[i] = c;
-		}
-		uint16_t allocatedSize = 0;
-		if (parSize > 1){
-			allocatedSize = GetNum(1);
-		}
-		if(RunProg(filename, allocatedSize)){
-			ShellMode = 1;
-		}else 
-			PrintInfo("Command not found, Input \'help\' to get more info",RED);
-	}
-	bufSize = 0;
-}
-
-bool NeedRetnShell(){
-	uint8_t a;
-	asm volatile(
-			"push si;"
-			"push es;"
-			"mov ax, 0x00;"
-			"mov es, ax;"
-			"mov ax, 0x7c00;"
-			"mov si, ax;"
-			"mov ax, es:[si];"
-			"pop es;"
-			"pop si;"
-			:"=a"(a)
-			);
-	return (a && ShellMode);
-}
-
-
 void int_23h(){
 	CPP_INT_HEADER;
 	/*
@@ -541,92 +396,10 @@ int main(){
 	INIT_SEM();
 	WriteUserINT();
 	SetPort(5,talkBuffer,talkBufSize);
-	cls();
-	uname();
-	DrawText("You can input \'help\' to get more info",1,0,LGREEN);	
-	SetCursor(2,0);
+	char shellName[12] = "SHELL   COM";
+	RunProg(shellName);
 	while(1){
-		if (INT_INFO >= 1 && INT_INFO <= 5){
-			RunProg(INT_INFO);
-			INT_INFO = 0;
-			ShellMode = 1;
-		}
-		//Tab
-		uint16_t key = getkey();
-		if (key == KEY_CTRL_C){
-			cls();
-		}
-		//ShellMode = 0时, 为Shell操作
-		if (ShellMode){
-			//ShellMode = 1时, 切换到程序执行
-			if (key == KEY_CTRL_Z || key == KEY_ESC){
-				ShellMode = 0;
-				if (key == KEY_CTRL_Z){
-					KillAll();
-				}else{
-					SetAllTask(T_SUSPEND,T_RUNNING);
-				}
-				cls();
-			}
-			if (NeedRetnShell()){
-				KillAll();
-			}
-			if (RunNum <= 1){
-				ShellMode = 0;
-			}
-
-			if (INT09H_FLAG){
-				DrawText("Ouch! Ouch!",24,65,YELLOW);
-			}else{
-				DrawText("           ",24,65,YELLOW);
-			}
-			continue;
-		}
-		//非Shell
-		//
-		if (batchSize > 0 && batchID < batchSize){
-			PrintStr(BATCH_INFO,YELLOW);
-			int id = batchList[batchID++];
-			PrintChar(id + '0',YELLOW);
-			sleep(1);
-			cls();
-			RunProg(id);
-			ShellMode = 1;
-			continue;
-		}
-
-		PrintStr(PROMPT_INFO,LCARM);
-		buf[0] = 0;
-		bufSize = 0; // clean buf
-		while(1){
-
-			if (GetPortMsgV(5)){
-				PrintStr(talkBuffer);
-				SetPortMsgV(5,0);
-				PrintStr(NEWLINE);
-				break;
-			}
-
-			char c = getchar();
-			 if (c == '\r'){
-				PrintStr(NEWLINE);
-				Execute();
-				break;
-			}else if (c == '\b'){
-				if (bufSize > 0){
-					PrintChar('\b');
-					PrintChar(' ');
-					PrintChar('\b');
-					buf[--bufSize] = 0;
-				}
-			}else {
-				if (bufSize < maxBufSize - 1){
-					PrintChar(c, WHITE);
-					buf[bufSize++] = c;
-					buf[bufSize] = 0;
-				}
- 			}
- 		}
- 	 }  
+		
+	}
 	return 0;
 } 
