@@ -8,6 +8,7 @@
 #include "port.h"
 #include "mem_base.h"
 #include "os_sem.h"
+#include "prog.h"
 
 const uint16_t talkBufSize = 128;
 char talkBuffer[talkBufSize];
@@ -19,8 +20,6 @@ MemBlock memdata[MaxBlockNum + 1];
 MemRecord memRecord;
 
 
-//extern "C" void WritePCB(uint16_t addr);
-extern "C" uint16_t ShellMode;
 extern "C" uint16_t RunNum;
 extern "C" const uint8_t INT09H_FLAG;
 extern "C" uint16_t INT_INFO; //中断信号 
@@ -35,54 +34,16 @@ void KillAll(){
 }
 
 __attribute__((regparm(1)))
-int RunProg(char *filename, uint16_t allocatedSize = 0){
-	if (RunNum >= MaxRunNum)return 0;
-	//uint16_t addrseg = (PROG_SEGMENT + PROG_SEGMENT_S); 
-	uint16_t offset = 0x100;
-	uint16_t si = GetFileSize(filename);
-	// if si + allocatedSize > 0xFFFF   =>   allocatedSize > 0xFFFF - si
-	if (allocatedSize > uint16_t(0xF000) - si){
-		si = 0xF000;
-	}else{
-		si += allocatedSize;
+int RunProg(int i){
+	if (i == 5){
+		char f[12] = "KAN     COM";
+		return RunProg(f);
 	}
-	uint16_t SSIZE = uint16_t((si + 0x100 + (1<<4) - 1) >> 4); 
-	uint16_t addrseg = mem_allocate(memRecord,SSIZE);//(PROG_SEGMENT + PROG_SEGMENT_S);
-	if (addrseg == 0xFFFF){
-		PrintStr("Lack of Memory\r\n",RED);
-		return 0;
-	}
-	si = LoadFile(filename,offset,addrseg);
-	if (si == 0){
-		return 0;
-	}
-
-	uint8_t pcbID = FindEmptyPCB();
-	if (!pcbID)return 0;
-	_p.ID = pcbID; 
-	_p.CS = addrseg;
-	_p.DS = addrseg;
-	_p.SS = addrseg;
-	_p.IP = 0x100;
-	_p.SP = 0x100 - 4;
-	_p.FLAGS = 512;
-	_p.STATE = T_READY;
-	_p.SIZE = si;
-	_p.SSIZE = SSIZE; 
-	_p.PARENT_ID = 0;
-	_p.BLOCK_NEXT = 0;
-	_p.KIND = K_PROG;
-	_p.PRIORITY = 0;
-	_p.SEG = addrseg;
-
-	int ni = 0;
-	for (int i = 0;i < 8 && filename[i] != ' ';++i)_p.NAME[ni++] = filename[i];
-	_p.NAME[ni++] = '.';
-	for (int i = 8;i < 11 && filename[i] != ' ';++i)_p.NAME[ni++] = filename[i];
-	for (;ni<16;++ni)_p.NAME[ni] = 0;
-	WritePCB(pcbID);
-	++RunNum;
-	return si;
+	char filename[12] = "WKCN1   COM";
+	filename[4] = i + '0';
+	cls();
+	SetAllTask(T_RUNNING, T_SUSPEND);
+	return RunProg(filename);
 }
 
 void MEM(){
@@ -182,16 +143,19 @@ void top(){
 
 void PR(){
 	//pr id value
+	/*
 	uint8_t id = GetNum(1);
 	if (GetTaskState(id) != T_EMPTY){
 		uint8_t value = GetNum(2);
 		if (value > 10)value = 10;
 		SetTaskAttr(id,&_p.PRIORITY,value);
 	}
+	*/
 }
 
 void int_23h(){
 	CPP_INT_HEADER;
+	PrintStr("WWW");
 	/*
 	 * ah = 00h, 释放段地址bx， 段大小为cx的内存
 	 * ah = 01h, 申请段大小为cx的内存， 返回值为段地址
@@ -200,7 +164,7 @@ void int_23h(){
 	 * ah = 0x10h, RunProg 偏移量bx, 分配内存大小cx, 段地址dx
 	 */
 	uint16_t ax,bx,cx,dx;
-	asm volatile("":"=a"(ax),"=b"(bx),"=c"(cx),"=d"(dx));
+	asm volatile("sti;":"=a"(ax),"=b"(bx),"=c"(cx),"=d"(dx));
 	char filename[11];
 	uint16_t ah = (ax & 0xFF00) >> 8;
 	switch(ah){
@@ -211,6 +175,7 @@ void int_23h(){
 		case 0x01:
 			bx = mem_allocate(memRecord,cx);
 			asm volatile("mov ax, bx;"::"b"(bx));
+			PrintNum(bx, RED);
 			break;
 		case 0x10:
 			//拷贝文件名
@@ -219,8 +184,8 @@ void int_23h(){
 			"mov es, dx;"
 			"mov si, ax;"
 			"COPY_FILENAME:;"
-			"mov al, [es:bx];"
-			"mov [ds:si], al;"
+			"mov al, es:[bx];"
+			"mov ds:[si], al;"
 			"inc bx;inc si;"
 			"loop COPY_FILENAME;"
 			"pop si;pop es;"
@@ -228,7 +193,8 @@ void int_23h(){
 			:"a"(filename),"b"(bx),"c"(11),"d"(dx)
 			);
 			asm volatile("sti;");
-			RunProg(filename, cx);
+			ax = RunProg(filename, cx);
+			asm volatile ("mov ax, bx;"::"b"(ax));
 			break;
 	};
 	CPP_INT_LEAVE;
@@ -339,9 +305,15 @@ int main(){
 	WriteUserINT();
 	SetPort(5,talkBuffer,talkBufSize);
 	char shellName[12] = "SHELL   COM";
-	RunProg(shellName);
+	if(!RunProg(shellName))PrintStr("Shell Error!");
 	while(1){
-		
+		/*
+		if (INT09H_FLAG){
+			DrawText("Ouch! Ouch!",24,65,YELLOW);
+		}else{
+			DrawText("           ",24,65,YELLOW);
+		}
+		*/
 	}
 	return 0;
 } 

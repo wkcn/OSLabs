@@ -75,21 +75,21 @@ void ReadFloppy(uint16_t sectorID, uint8_t sectorNum, void *data){
 }
 
 
+char diskbuf[1024];
 __attribute__((regparm(1)))
 uint16_t GetFileSize(char *filename){
-	char buf[512];
 	Entry e;
 	for (int i = 19;i < 19 + 14;++i){
-		ReadFloppy(i,1,buf);
+		ReadFloppy(i,1,diskbuf);
 		for (int j = 0;j < 512/32;++j){
-			memcpy(&e,buf + j * 32,32);
+			memcpy(&e,diskbuf + j * 32,32);
 			bool can = true;
-			for (int k = 0;k < 11;++k){
+			for (int k =  0;k < 11;++k){
 				if (filename[k] != e.DIR_Name[k]){
 					can = false;
 					break;
-			 	}
-			} 
+			  	}
+			}  
 			if (!can)continue;
 			//FOUND_ENTRY
 			return e.DIR_FileSize;
@@ -100,19 +100,18 @@ uint16_t GetFileSize(char *filename){
 
 __attribute__((regparm(3)))
 uint16_t LoadFile(char *filename, uint16_t offset, uint16_t seg){
-	char buf[1024];
 	Entry e;
 	for (int i = 19;i < 19 + 14;++i){
-		ReadFloppy(i,1,buf);
+		ReadFloppy(i,1,diskbuf);
 		for (int j = 0;j < 512/32;++j){
-			memcpy(&e,buf + j * 32,32);
+			memcpy(&e,diskbuf + j * 32,32);
 			bool can = true;
 			for (int k = 0;k < 11;++k){
 				if (filename[k] != e.DIR_Name[k]){
 					can = false;
 					break;
 			 	}
-			} 
+ 			} 
 			if (!can)continue;
 			//FOUND_ENTRY
 			uint16_t u = e.DIR_FstClus;
@@ -120,7 +119,7 @@ uint16_t LoadFile(char *filename, uint16_t offset, uint16_t seg){
 				//int offset = 512 * 33 + (u - 2) * 512;
 				int y = 33 + (u - 2);
 
-				ReadFloppy(y,1,buf);
+				ReadFloppy(y,1,diskbuf);
 				for (int w = 0;w < 512;++w){
 					asm volatile(
 							"push es;"
@@ -131,36 +130,36 @@ uint16_t LoadFile(char *filename, uint16_t offset, uint16_t seg){
 							"pop si;"
 							"pop es;"
 							:
-							:"a"(seg),"b"(offset),"c"(buf[w])
+							:"a"(seg),"b"(offset),"c"(diskbuf[w])
 							);
 					offset += 1;
 					if (offset == 0x0000){
 						//0x0 0000
 						seg += 0x1000;
 					}
-				}
-				//memcpy(dest,buf,512); // 这里按512覆盖, 不考虑不满512的情况
+			 	}
+				//memcpy(dest,diskbuf,512); // 这里按512覆盖, 不考虑不满512的情况
 				//dest += 512;
 
 				//get fat
 				int t = u * 3 / 2;
 				int p = t / 512;
 				int o = t % 512;
-				ReadFloppy(1 + p,2,buf);	
-				//uint16_t w = ((buf[o+1]&0xFF) << 8) | (buf[o]&0xFF);
+				ReadFloppy(1 + p,2,diskbuf);	
+				//uint16_t w = ((diskbuf[o+1]&0xFF) << 8) | (diskbuf[o]&0xFF);
 				//注意位扩展:-(
-				uint16_t w = *(uint16_t*)(buf + o);
+				uint16_t w = *(uint16_t*)(diskbuf + o);
 				if (u % 2 == 0){
 					w &= 0xFFF;
 				}else{
 					w = (w >> 4) & 0xFFF;
 				}
 				u = w;
-			} 
+			}  
 			return e.DIR_FileSize;
-		}
-	}
+ 		}
+ 	}
 	return 0;
-}
+} 
 
 #endif

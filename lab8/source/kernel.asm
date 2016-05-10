@@ -2,7 +2,6 @@ BITS 16
 [global _start]
 [extern main]
 
-[global ShellMode]
 [global RunNum]
 
 [global INT09H_FLAG]
@@ -58,7 +57,7 @@ _start:
 	mov ax, PCB_SEGMENT
 	mov es, ax
 	mov al, 1
-	mov byte [es:_STATE_OFFSET], al; 设置Shell为运行态
+	mov byte [es:_STATE_OFFSET], al; 设置内核为运行态
 	
 	;SetTimer
 	mov al,34h
@@ -127,7 +126,6 @@ WKCNINT20H:
 	push bx
 	push ax
 
-	mov word[cs:ShellMode], 0
 	mov ax, [cs:RunID]
 	mov bx, PCBSize
 	mul bx
@@ -145,12 +143,12 @@ WKCNINT20H:
 
 ;注意, 如果这个放在代码段, 会导致被当成代码运行:-(
 INT21HJMPLIST:
-	dw TabShellMode, TabProgState, GetRunID, RETN_PCB_S, RETN_PROG_S, RETN_MSG_S, RETN_MAXRUNNUM
-	dw STOP_CLOCK, START_CLOCK, INC_RUNNUM
+	dw INT21HEND, TabProgState, GetRunID, RETN_PCB_S, RETN_PROG_S, RETN_MSG_S, RETN_MAXRUNNUM
+	dw STOP_CLOCK, START_CLOCK, INC_RUNNUM, RETN_RUNNUM
 
 WKCNINT21H:
 	;21H中断
-	;AH = 00h, 切换ShellMode到al状态
+	;AH = 00h
 	;AH = 01h, 切换进程状态到al
 	;AH = 02h, 得到当前进程ID
 	;AH = 03h, 返回PCB_SEGMENT
@@ -160,13 +158,14 @@ WKCNINT21H:
 	;AH = 07h, 停止时钟
 	;AH = 08h, 开启时钟
 	;AH = 09h, ++RunNum
+	;AH = 0Ah, 返回RunNum
 	push dx
 	push cx
 	push bx
 
 	;判断是否有效
-	cmp ah, 0x09
-	ja INT21HEND
+	;cmp ah, 0x0A
+	;ja INT21HEND
 
 	xor bx, bx
 	mov bl, ah
@@ -174,8 +173,6 @@ WKCNINT21H:
 	jmp word[cs:(INT21HJMPLIST + bx)]
 
 	;AH = 00h
-	TabShellMode:
-	mov word[cs:ShellMode], ax; 已知ax高位为0
 	jmp INT21HEND
 
 	;AH = 01h
@@ -223,6 +220,10 @@ WKCNINT21H:
 
 	INC_RUNNUM:
 	inc word[cs:RunNum] 
+	jmp INT21HEND
+
+	RETN_RUNNUM:
+	mov ax, word[cs:RunNum]
 	jmp INT21HEND
 
 	INT21HEND:
@@ -638,7 +639,6 @@ PCBCONST:
 ProcessesTable:
 	RunID dw 0 ; default to open shell
 	RunNum dw 1
-	ShellMode dw 0
 	PRIORITY_COUNT db 0
 	ProcessIDAssigner dw 1; 进程 ID 分配
 	CLOCKON db 1

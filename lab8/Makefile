@@ -37,7 +37,8 @@ write_knl: kernel.bin
 	cp $(BUILD_DIR)/kernel.bin $(DISK_DIR)/
 	umount $(DISK_DIR)/
 
-build_progs: wkcn1.com wkcn2.com wkcn3.com wkcn4.com kan.com\
+build_progs: shell.com\
+			wkcn1.com wkcn2.com wkcn3.com wkcn4.com kan.com\
    			bs.com bpb.com ls.com help.com\
 			box.com\
 		   	testint.com testport.com testnew.com\

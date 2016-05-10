@@ -4,6 +4,9 @@
 #include "keyboard.h"
 #include "version.h"
 #include "pcb.h"
+#include "port.h"
+#include "interrupt.h"
+#include "prog.h"
 
 const char *OS_INFO = "MiraiOS 0.5";
 const char *PROMPT_INFO = "wkcn > ";
@@ -21,12 +24,10 @@ int parSize = 0;
 int batchList[5] = {5,1,2,3,4};
 int batchID = 0;
 int batchSize = 0;
-
-
-__attribute__((regparm(1)))
-int RunProg(char *filename, uint16_t allocatedSize = 0){
-	return 0;
-}
+uint16_t INT_INFO = 0;
+uint16_t ShellMode = 0;
+uint16_t RunNum = 0;
+uint8_t INT09H_FLAG = 0;
 
 __attribute__((regparm(1)))
 int RunProg(int i){
@@ -117,6 +118,7 @@ bool IsNum(int i){
 
 void PR(){}
 
+char filename[12] = "        COM";
 void Execute(){  
 	if (bufSize <= 0)return;
 	batchSize = 0;
@@ -198,8 +200,7 @@ void Execute(){
 		ShellMode = 1;
 	}else{
 		//Check File
-		char filename[12] = "        COM";
-		for (int i = 0;i < 11;++i){
+		for (int i = 0;i < 8;++i){
 			char c = buf[i];
 			if (c == '.' || c == 0)break;
 			if (c >= 'a' && c <= 'z')c = c - 'a' + 'A';
@@ -224,16 +225,12 @@ int main(){
 	DrawText("You can input \'help\' to get more info",1,0,LGREEN);	
 	SetCursor(2,0);
 	while(1){
-		if (INT_INFO >= 1 && INT_INFO <= 5){
-			RunProg(INT_INFO);
-			INT_INFO = 0;
-			ShellMode = 1;
-		}
 		//Tab
 		uint16_t key = getkey();
 		if (key == KEY_CTRL_C){
 			cls();
 		}
+
 		//ShellMode = 0时, 为Shell操作
 		if (ShellMode){
 			//ShellMode = 1时, 切换到程序执行
@@ -249,16 +246,10 @@ int main(){
 			if (RunNum <= 1){
 				ShellMode = 0;
 			}
-
-			if (INT09H_FLAG){
-				DrawText("Ouch! Ouch!",24,65,YELLOW);
-			}else{
-				DrawText("           ",24,65,YELLOW);
-			}
 			continue;
 		}
+
 		//非Shell
-		//
 		if (batchSize > 0 && batchID < batchSize){
 			PrintStr(BATCH_INFO,YELLOW);
 			int id = batchList[batchID++];
@@ -271,8 +262,11 @@ int main(){
 		}
 
 		PrintStr(PROMPT_INFO,LCARM);
+
 		buf[0] = 0;
 		bufSize = 0; // clean buf
+
+		// 进入输入行命令模式
 		while(1){
 
 			if (GetPortMsgV(5)){
