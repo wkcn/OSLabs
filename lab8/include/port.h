@@ -14,6 +14,7 @@
 	;返回信号量(ax)
 */
 #include "defines.h"
+#include "portsList.h"
 
 __attribute__((regparm(3)))
 void SetPort(uint8_t portID, void* varAddr, uint16_t size){

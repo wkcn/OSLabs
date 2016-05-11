@@ -3,6 +3,8 @@ BITS 16
 [global _start]
 [extern main] 
 
+jmp _start
+
 _start:
 	push word 0 ; 由于G++的ret是32位的， 这里补0
 	call main

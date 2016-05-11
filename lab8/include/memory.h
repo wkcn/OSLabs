@@ -1,10 +1,9 @@
 #ifndef _MEMORY_H_
 #define _MEMORY_H_
 
+#include <cstddef>
 #include "mem_base.h"
 #include "pcb.h"
-
-typedef long unsigned int size_t;
 
 struct MemAllocRecord{
 	bool used;

@@ -10,8 +10,23 @@
 #include "os_sem.h"
 #include "prog.h"
 
+const char *OS_INFO = "MiraiOS 0.5";
+const char *PROMPT_INFO = "wkcn > ";
+const char *NOPROG_INFO = "No User Process is Running!";
+const char *BATCH_INFO = "Batching Next Program: ";
+const char *LS_INFO = "Please Input These Number to Run a Program or more :-)\n\r1,2,3,4 - 45 angle fly char\n\r5 Draw my name";
+
+const uint16_t maxBufSize = 128;
+char buf[maxBufSize]; // 指令流
 const uint16_t talkBufSize = 128;
 char talkBuffer[talkBufSize];
+int bufSize = 0;
+int par[16][2];
+int parSize = 0;
+int batchList[5] = {5,1,2,3,4};
+int batchID = 0;
+int batchSize = 0;
+ReadyProg readyProg;
 
 //Kernel_Memory
 const uint16_t MaxBlockNum = 127;
@@ -20,6 +35,8 @@ MemBlock memdata[MaxBlockNum + 1];
 MemRecord memRecord;
 
 
+//extern "C" void WritePCB(uint16_t addr);
+extern "C" uint16_t ShellMode;
 extern "C" uint16_t RunNum;
 extern "C" const uint8_t INT09H_FLAG;
 extern "C" uint16_t INT_INFO; //中断信号 
@@ -31,6 +48,58 @@ void KillAll(){
 			SetTaskState(i, T_DEAD);
 		}
 	}
+}
+
+__attribute__((regparm(2)))
+int RunProg(char *filename, uint16_t allocatedSize = 0){
+	if (RunNum >= MaxRunNum)return 0;
+	uint16_t offset = 0x100;
+	uint16_t si = GetFileSize(filename);
+	// if si + allocatedSize > 0xFFFF   =>   allocatedSize > 0xFFFF - si
+	if (allocatedSize > uint16_t(0xF000) - si){
+		si = 0xF000;
+	}else{
+		si += allocatedSize;
+	}
+	uint16_t SSIZE = uint16_t((si + 0x100 + (1<<4) - 1) >> 4); 
+	uint16_t addrseg = mem_allocate(memRecord,SSIZE);//(PROG_SEGMENT + PROG_SEGMENT_S);
+	if (addrseg == 0xFFFF){
+		PrintStr("Lack of Memory\r\n",RED);
+		return 0;
+	}
+	si = LoadFile(filename,offset,addrseg);
+
+	if (si == 0){
+		return 0;
+	}
+
+	uint8_t pcbID = FindEmptyPCB();
+
+	if (!pcbID)return 0;
+	_p.ID = pcbID; 
+	_p.CS = addrseg;
+	_p.DS = addrseg;
+	_p.SS = addrseg;
+	_p.IP = 0x100;
+	_p.SP = 0x100 - 4;
+	_p.FLAGS = 512;
+	_p.STATE = T_READY;
+	_p.SIZE = si;
+	_p.SSIZE = SSIZE; 
+	_p.PARENT_ID = 0;
+	_p.BLOCK_NEXT = 0;
+	_p.KIND = K_PROG;
+	_p.PRIORITY = 0;
+	_p.SEG = addrseg;
+
+	int ni = 0;
+	for (int i = 0;i < 8 && filename[i] != ' ';++i)_p.NAME[ni++] = filename[i];
+	_p.NAME[ni++] = '.';
+	for (int i = 8;i < 11 && filename[i] != ' ';++i)_p.NAME[ni++] = filename[i];
+	for (;ni<16;++ni)_p.NAME[ni] = 0;
+	WritePCB(pcbID);
+	++RunNum;
+	return si;
 }
 
 __attribute__((regparm(1)))
@@ -141,31 +210,190 @@ void top(){
 	Top();
 }
 
+void uname(){
+	PrintStr(OS_INFO,LGREEN);
+	PrintStr(" #",LGREEN);
+	PrintNum(RELEASE_TIMES,LGREEN);
+	PrintStr(NEWLINE);
+}
+__attribute__((regparm(2)))
+void PrintInfo(const char* str, uint16_t color){
+	PrintStr(PROMPT_INFO,LCARM);
+	PrintStr(str,color);
+	PrintStr(NEWLINE,color);
+}
+
+__attribute__((regparm(1)))
+bool CommandMatch(const char* str){
+	return (!strcmp(buf + par[0][0], str));
+}
+
+__attribute__((regparm(1)))
+int GetNum(int i){
+	//i = 0 为命令
+	//第一个参数 i = 1
+	int j = par[i][0];
+	int k = par[i][1];
+	int res = 0;
+	if (buf[k-1] == 'h' || buf[k-1] == 'H'){
+		k--;
+		for (;j<k;++j){
+			char c = buf[j];
+			res *= 16;
+			if (c >= '0' && c <= '9'){
+				res += c - '0';
+			}else if (c >= 'A' && c <= 'F'){
+				res += c - 'A' + 10;
+			}else if (c >= 'a' && c <= 'f'){
+				res += c - 'a' + 10;
+			}
+		}
+	}else{
+		for (;j<k;++j){
+			char c = buf[j];
+			res = res * 10 + c - '0';
+		}
+	}
+	return res;
+}
+
+__attribute__((regparm(1)))
+bool IsNum(int i){
+	int j = par[i][0];
+	int k = par[i][1];
+	if (j >= k)return false;
+	bool hex = false;
+	if (buf[k-1] == 'h' || buf[k-1] == 'H'){
+		hex = true;
+		k--;
+	}
+	for (;j<k;++j){
+		char c = buf[j];
+		if (c < '0' || c > '9' || (hex && ((c >='a' && c<='f') || (c >= 'A' && c <= 'F'))))return false;
+	}
+	return true;
+}
+
+
 void PR(){
 	//pr id value
-	/*
 	uint8_t id = GetNum(1);
 	if (GetTaskState(id) != T_EMPTY){
 		uint8_t value = GetNum(2);
 		if (value > 10)value = 10;
 		SetTaskAttr(id,&_p.PRIORITY,value);
 	}
-	*/
 }
+
+void Execute(){  
+	if (bufSize <= 0)return;
+	batchSize = 0;
+	batchID = 0;
+	for (int i = 0;i < bufSize && batchSize < 5;++i){
+		char c = buf[i];
+		int y = c - '0';
+		if (y >= 1 && y <= 5){
+			batchList[batchSize++] = y;
+		}else{
+			if (c != ' ')break;
+		}
+	}
+	if (batchSize == 1){
+		batchSize = 0;
+	}
+	if (batchSize >= 2){
+		return;
+	}
+	buf[bufSize] = ' ';
+	//以空格为分隔符号,最多十六个参数
+	int i,j;
+	i = 0; j = 0;
+	while (i < 16 && j < bufSize){
+		for (;buf[j] == ' ' && j < bufSize;++j){
+			buf[j] = 0;
+		}
+		par[i][0] = j;
+		for (;buf[j] != ' ' && j < bufSize;++j);
+		if (buf[j] == ' ')buf[j] = 0;
+		par[i][1] = j;
+		if (par[i][1] <= par[i][0])break;
+		++j;
+		++i;
+		parSize = i;
+	}
+	if (CommandMatch("uname")){
+		uname();
+	}else if (CommandMatch("top")){
+		top();
+	}else if (CommandMatch("cls")){
+		cls();
+	}else if (CommandMatch("r")){
+		if(RunNum > 1){
+			ShellMode = 1;
+			SetAllTask(T_RUNNING,T_SUSPEND);
+			cls();
+		}else{
+			PrintInfo(NOPROG_INFO, RED);
+		}
+	}else if(CommandMatch("killall")){
+		KillAll();
+		cls();
+	}else if(CommandMatch("k") || CommandMatch("kill")){
+		for(int q=1;q<parSize;++q)KillTask(GetNum(q));
+	}else if(CommandMatch("wake")){
+		for(int q=1;q<parSize;++q)SetTaskState(GetNum(q),T_RUNNING,T_SUSPEND);
+	}else if(CommandMatch("int")){
+		uint16_t id = GetNum(1);
+		if (false &&  !(id >= 0x33 && id <= 0x36)){
+			PrintStr("Sorry, You are allowed to use int 33 to int 36!\r\n",RED);
+		}else
+			ExecuteINT(id);
+	}else if(CommandMatch("suspend")){
+		for(int q=1;q<parSize;++q)SetTaskState(GetNum(q),T_SUSPEND,T_RUNNING);
+	}else if(CommandMatch("pr")){
+		PR();
+	}else if(CommandMatch("mem")){
+		MEM();
+	}else if (IsNum(0)){
+		for (int k = 0;k < parSize && buf[k];++k){
+			char c = buf[k];
+			int y = c - '0';
+			if (y >= 1 && y <=5){
+				RunProg(y);
+			}
+		}
+		//CLS();
+		ShellMode = 1;
+	}else{
+		//Check File
+		char filename[12] = "        COM";
+		for (int i = 0;i < 11;++i){
+			char c = buf[i];
+			if (c == '.' || c == 0)break;
+			if (c >= 'a' && c <= 'z')c = c - 'a' + 'A';
+			filename[i] = c;
+		}
+		uint16_t allocatedSize = 0;
+		if (parSize > 1){
+			allocatedSize = GetNum(1);
+		}
+		if(RunProg(filename, allocatedSize)){
+			ShellMode = 1;
+		}else 
+			PrintInfo("Command not found, Input \'help\' to get more info",RED);
+	}
+	bufSize = 0;
+}
+
 
 void int_23h(){
 	CPP_INT_HEADER;
-	PrintStr("WWW");
 	/*
 	 * ah = 00h, 释放段地址bx， 段大小为cx的内存
 	 * ah = 01h, 申请段大小为cx的内存， 返回值为段地址
 	 */
-	/*
-	 * ah = 0x10h, RunProg 偏移量bx, 分配内存大小cx, 段地址dx
-	 */
-	uint16_t ax,bx,cx,dx;
-	asm volatile("sti;":"=a"(ax),"=b"(bx),"=c"(cx),"=d"(dx));
-	char filename[11];
+	uint16_t ax, bx, cx, dx;
+	asm volatile("":"=a"(ax),"=b"(bx),"=c"(cx),"=d"(dx));
 	uint16_t ah = (ax & 0xFF00) >> 8;
 	switch(ah){
 		case 0x00:
@@ -175,28 +403,8 @@ void int_23h(){
 		case 0x01:
 			bx = mem_allocate(memRecord,cx);
 			asm volatile("mov ax, bx;"::"b"(bx));
-			PrintNum(bx, RED);
 			break;
-		case 0x10:
-			//拷贝文件名
-			asm volatile(
-			"push es;push si;"
-			"mov es, dx;"
-			"mov si, ax;"
-			"COPY_FILENAME:;"
-			"mov al, es:[bx];"
-			"mov ds:[si], al;"
-			"inc bx;inc si;"
-			"loop COPY_FILENAME;"
-			"pop si;pop es;"
-			:
-			:"a"(filename),"b"(bx),"c"(11),"d"(dx)
-			);
-			asm volatile("sti;");
-			ax = RunProg(filename, cx);
-			asm volatile ("mov ax, bx;"::"b"(ax));
-			break;
-	};
+	}
 	CPP_INT_LEAVE;
 }
 
@@ -286,9 +494,9 @@ void int_26h(){
 }
 
 void WriteUserINT(){
-	WriteIVT(0x23,int_23h); // 系统主要调用
-	WriteIVT(0x24,int_24h); // 大小写
-	WriteIVT(0x25,int_25h); // 信号量
+	WriteIVT(0x23,int_23h);
+	WriteIVT(0x24,int_24h);
+	WriteIVT(0x25,int_25h);
 	WriteIVT(0x26,int_26h);
 }
 
@@ -303,17 +511,99 @@ int main(){
 	INIT_MEMORY();
 	INIT_SEM();
 	WriteUserINT();
-	SetPort(5,talkBuffer,talkBufSize);
-	char shellName[12] = "SHELL   COM";
-	if(!RunProg(shellName))PrintStr("Shell Error!");
+	SetPort(READYPROG_PORT,(void*)&readyProg,sizeof(ReadyProg));
+	SetPort(TALK_PORT,talkBuffer,talkBufSize);
+	cls();
+	uname();
+	DrawText("You can input \'help\' to get more info",1,0,LGREEN);	
+	SetCursor(2,0);
 	while(1){
-		/*
-		if (INT09H_FLAG){
-			DrawText("Ouch! Ouch!",24,65,YELLOW);
-		}else{
-			DrawText("           ",24,65,YELLOW);
+		if (INT_INFO >= 1 && INT_INFO <= 5){
+			RunProg(INT_INFO);
+			INT_INFO = 0;
+			ShellMode = 1;
 		}
-		*/
-	}
+		//Tab
+		uint16_t key = getkey();
+		if (key == KEY_CTRL_C){
+			cls();
+		}
+		//ShellMode = 0时, 为Shell操作
+		if (ShellMode){
+			//ShellMode = 1时, 切换到程序执行
+			if (key == KEY_CTRL_Z || key == KEY_ESC){
+				ShellMode = 0;
+				if (key == KEY_CTRL_Z){
+					KillAll();
+				}else{
+					SetAllTask(T_SUSPEND,T_RUNNING);
+				}
+				cls();
+			}
+			if (RunNum <= 1){
+				ShellMode = 0;
+			}
+
+			if (INT09H_FLAG){
+				DrawText("Ouch! Ouch!",24,65,YELLOW);
+			}else{
+				DrawText("           ",24,65,YELLOW);
+			}
+			continue;
+		}
+		//非Shell
+		//
+		if (batchSize > 0 && batchID < batchSize){
+			PrintStr(BATCH_INFO,YELLOW);
+			int id = batchList[batchID++];
+			PrintChar(id + '0',YELLOW);
+			sleep(1);
+			cls();
+			RunProg(id);
+			ShellMode = 1;
+			continue;
+		}
+
+		PrintStr(PROMPT_INFO,LCARM);
+		buf[0] = 0;
+		bufSize = 0; // clean buf
+		while(1){
+
+			if (GetPortMsgV(TALK_PORT)){
+				PrintStr(talkBuffer);
+				SetPortMsgV(TALK_PORT,0);
+				PrintStr(NEWLINE);
+				break;
+			}
+
+			if (GetPortMsgV(READYPROG_PORT)){
+				PrintStrN(readyProg.filename,11);
+				PrintNum(readyProg.allocateSize,RED);
+				RunProg(readyProg.filename, readyProg.allocateSize);
+				SetPortMsgV(READYPROG_PORT,0);
+				break;
+			}
+
+			char c = getchar();
+			 if (c == '\r'){
+				PrintStr(NEWLINE);
+				Execute();
+				break;
+			}else if (c == '\b'){
+				if (bufSize > 0){
+					PrintChar('\b');
+					PrintChar(' ');
+					PrintChar('\b');
+					buf[--bufSize] = 0;
+				}
+			}else {
+				if (bufSize < maxBufSize - 1){
+					PrintChar(c, WHITE);
+					buf[bufSize++] = c;
+					buf[bufSize] = 0;
+				}
+ 			}
+ 		}
+ 	 }  
 	return 0;
 } 

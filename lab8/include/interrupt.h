@@ -15,6 +15,7 @@
 //带局部变量的函数(ebp保存原来的esp)
 //leave恢复esp(用ebp做备份), 计数 +8 -6
 //push ebp; mov ebp, esp; esp被修改, ebp没有被改
+//注意， 这时的中断用的栈是用户栈
 #define CPP_INT_LEAVE asm volatile("pop ds;leave;.BYTE 0xcf")
 #define CPP_INT_HEADER asm volatile("push ds;push ax;mov ax, cs; mov ds, ax;pop ax;")
 __attribute__((regparm(3)))
