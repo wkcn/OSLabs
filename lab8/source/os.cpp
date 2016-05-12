@@ -23,6 +23,7 @@ MemRecord memRecord;
 
 
 extern "C" uint16_t RunNum;
+extern "C" uint8_t UserID;
 extern "C" const uint8_t INT09H_FLAG;
 extern "C" uint16_t INT_INFO; //中断信号 
 
@@ -55,6 +56,7 @@ uint16_t RunProg(char *filename, uint16_t allocatedSize = 0){
 
 	if (!pcbID)return 0;
 	_p.ID = pcbID; 
+	_p.UID = UserID; // 没有使用readyprog的uid !
 	_p.CS = addrseg;
 	_p.DS = addrseg;
 	_p.SS = addrseg;
@@ -78,20 +80,6 @@ uint16_t RunProg(char *filename, uint16_t allocatedSize = 0){
 	WritePCB(pcbID);
 	++RunNum;
 	return si;
-}
-
-
-__attribute__((regparm(1)))
-int RunProg(int i){
-	if (i == 5){
-		char f[12] = "KAN     COM";
-		return RunProg(f);
-	}
-	char filename[12] = "WKCN1   COM";
-	filename[4] = i + '0';
-	cls();
-	SetAllTask(T_RUNNING, T_SUSPEND);
-	return RunProg(filename);
 }
 
 void MEM(){
@@ -259,6 +247,7 @@ int main(){
 
 	SetPort(TALK_PORT,talkBuffer,talkBufSize);
 
+	UserID = 1;
 	RunProg(shellName);
 
 	while(1){

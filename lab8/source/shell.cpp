@@ -8,13 +8,14 @@
 #include "prog.h"
 
 
-const char *OS_INFO = "MiraiOS 0.5";
+const char *OS_INFO = "MiraiOS 0.6";
 const char *PROMPT_INFO = "wkcn > ";
 const char *NOPROG_INFO = "No User Process is Running!";
 const char *BATCH_INFO = "Batching Next Program: ";
 const char *LS_INFO = "Please Input These Number to Run a Program or more :-)\n\r1,2,3,4 - 45 angle fly char\n\r5 Draw my name";
 
 uint16_t ShellMode = 0;
+uint8_t UserID;
 
 const uint16_t maxBufSize = 128;
 char buf[maxBufSize]; // 指令流
@@ -31,7 +32,12 @@ int batchSize = 0;
 ReadyProg readyprog;
 
 void KillAll(){
+	uint8_t uid;
 	for (uint8_t i = 1;i < MaxRunNum;++i){
+		GetTaskAttr(i, &_p.UID, uid);
+		if (uid != UserID)continue;
+		GetTaskAttr(i, &_p.ID, uid);
+		if (uid == UserID)continue;
 		uint8_t state = GetTaskState(i);
 		if (state != T_EMPTY){
 			SetTaskState(i, T_DEAD);
@@ -39,11 +45,25 @@ void KillAll(){
 	}
 }
 
+__attribute__((regparm(2)))
+void SetAllTask(uint8_t toState,uint8_t fromState){
+	uint8_t uid;
+	for (int i = 1;i < MaxRunNum;++i){
+		GetTaskAttr(i, &_p.UID, uid);
+		if (uid != UserID)continue;
+		GetTaskAttr(i, &_p.ID, uid);
+		if (uid == UserID)continue;
+		if (GetTaskState(i) == fromState){
+			SetTaskState(i, toState);
+		}
+	}
+}
 
 __attribute__((regparm(2)))
 uint16_t RunProg(char *filename, uint16_t allocatedSize = 0){
 	for (int i = 0;i < 11;++i)readyprog.filename[i] = filename[i];
 	readyprog.allocatedSize = allocatedSize;
+	readyprog.uid = UserID;
 	WritePort(READYPROG_PORT, (void*)&readyprog, sizeof(ReadyProg));
 	SetPortMsgV(READYPROG_PORT,1);
 	uint16_t rv = 0;
@@ -149,8 +169,14 @@ void PR(){
 
 
 void top(){
-	uint16_t RunNum;
-	GetRunNum;
+	uint16_t RunNum = 0;
+	for (uint8_t t = 0;t < MaxRunNum;++t){
+		if (GetTaskState(t) == T_EMPTY)continue;
+		uint8_t uid;
+		GetTaskAttr(t, &_p.UID, uid);
+		if (uid != UserID)continue;
+		++RunNum;
+	}
 	PrintStr(" There are ");
 	PrintNum(RunNum,WHITE);
 	PrintStr(" Progresses :-)",WHITE);
@@ -159,6 +185,7 @@ void top(){
 	for (uint16_t t = 0;t < MaxRunNum;++t){
 		LoadPCB(t);
 		if (_p.STATE == T_EMPTY)continue;
+		if (_p.UID != UserID)continue;
 		uint16_t count = 0;
 		PrintChar(' ');
 		count = PrintNum(_p.ID);
@@ -216,7 +243,7 @@ void top(){
 }
 
 
-char Exfilename[12] = "        COM";
+char Exfilename[12];
 void Execute(){  
 	if (bufSize <= 0)return;
 	batchSize = 0;
@@ -300,7 +327,8 @@ void Execute(){
 		ShellMode = 1;
 	}else{
 		//Check File
-		for (int i = 0;i < 11 - 3;++i){
+		memcpy(Exfilename, "        COM",11);
+		for (int i = 0;i < 11;++i){
 			char c = buf[i];
 			if (c == '.' || c == 0)break;
 			if (c >= 'a' && c <= 'z')c = c - 'a' + 'A';
@@ -320,6 +348,7 @@ void Execute(){
 
 int main(){
 	INIT_SEGMENT();
+	UserID = GetRunID();
 	cls();
 	uname();
 	DrawText("You can input \'help\' to get more info",1,0,LGREEN);	

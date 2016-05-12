@@ -12,6 +12,7 @@ typedef uint64_t dq;
 #pragma pack (1)
 struct Processes{
 	db ID;
+	db UID;
 	db STATE;
 	db NAME[16];
 	db KIND; // 0: 普通进程, 1: forked进程, 2: 线程
@@ -131,14 +132,6 @@ void GetTaskAttr(uint8_t id, void *something, uint16_t &value){
 }
 
 
-__attribute__((regparm(2)))
-void SetAllTask(uint8_t toState,uint8_t fromState){
-	for (int i = 1;i < MaxRunNum;++i){
-		if (GetTaskState(i) == fromState){
-			SetTaskState(i, toState);
-		}
-	}
-}
 
 uint8_t FindEmptyPCB(){
 	for (int i = 1;i < MaxRunNum;++i){

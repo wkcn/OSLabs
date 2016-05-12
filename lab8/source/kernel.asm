@@ -3,6 +3,7 @@ BITS 16
 [extern main]
 
 [global RunNum]
+[global UserID]
 
 [global INT09H_FLAG]
 [global INT_INFO]
@@ -454,6 +455,10 @@ WKCNINTTimer:
 	;假如不是Running态, 不能继续运行
 	cmp byte [es:(bx + _STATE_OFFSET)], 1
 	jne FindUserProg
+	;判断是否为当前用户的进程
+	mov dl, [cs:UserID]
+	cmp byte [es:(bx + _UID_OFFSET)], dl
+	jne FindUserProg
 	mov dl, byte [ds:PRIORITY_COUNT]
 	inc byte [ds:PRIORITY_COUNT]
 	;bx 还是之前程序的PCB偏移
@@ -623,6 +628,7 @@ IVT:
 PCBCONST:
 	PCBSize equ FirstProcessEnd - Processes
 	SetOffset _ID
+	SetOffset _UID
 	SetOffset _STATE
 	SetOffset _NAME
 	SetOffset _SIZE
@@ -647,6 +653,7 @@ PCBCONST:
 	SetOffset _FLAGS
 ProcessesTable:
 	RunID dw 0 ; default to open shell
+	UserID db 0
 	RunNum dw 1
 	PRIORITY_COUNT db 0
 	ProcessIDAssigner dw 1; 进程 ID 分配
@@ -654,6 +661,7 @@ ProcessesTable:
 
 Processes:
 	_ID db 0
+	_UID db 0
 	_STATE db 0 ; 结束态0, 运行态1
 	_NAME db "0123456789ABCDEF" ; 16 bytes
 	_KIND db 0
