@@ -20,7 +20,7 @@ sem sems[MaxSemNum];
 
 uint8_t semtemp;
 __attribute__((regparm(1)))
-void semWait(uint8_t sid){
+void os_semWait(uint8_t sid){
 	//INIT_SEGMENT();
 	uint16_t ax = 1;
 	while(1){
@@ -60,7 +60,7 @@ void semWait(uint8_t sid){
 }
 
 __attribute__((regparm(1)))
-void semSignal(uint8_t sid){
+void os_semSignal(uint8_t sid){
 	//INIT_SEGMENT();
 	uint16_t ax = 1;
 	while(1){
@@ -84,7 +84,7 @@ void semSignal(uint8_t sid){
 }
 
 __attribute__((regparm(1)))
-uint8_t semCreate(int8_t count){
+uint8_t os_semCreate(int8_t count){
 	for (uint8_t i = 0;i < MaxSemNum;++i){
 		if (!sems[i].used){
 			sems[i].used = 1;
@@ -99,13 +99,13 @@ uint8_t semCreate(int8_t count){
 }
 
 __attribute__((regparm(1)))
-void semDel(uint8_t sid){
+void os_semDel(uint8_t sid){
 	sems[sid].used = false;
 }
 
 
 __attribute__((regparm(1)))
-void semRelease(uint8_t runid){
+void os_semRelease(uint8_t runid){
 	for (uint8_t i = 0;i < MaxSemNum;++i){
 		if (sems[i].used && sems[i].runid == runid){
 			sems[i].used = false;

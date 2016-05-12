@@ -90,7 +90,7 @@ void DrawText(const char *str,uint16_t r,uint16_t c,uint16_t color = 0x07){
 	}
 }
 
-__attribute__((regparm(1)))
+__attribute__((regparm(2)))
 void PrintChar(char ch, uint16_t color = 0x07){
 	//Use 10h interupt to get right cursor position
 	uint16_t ocp = GetCursor();
@@ -126,7 +126,7 @@ void PrintStrN(const char *str, uint16_t len, uint16_t color = 0x07){
 	}
 }
 
-__attribute__((regparm(1)))
+__attribute__((regparm(2)))
 int PrintNum(int num, uint16_t color = WHITE){
 	char temp[16];
 	if (num < 0){
@@ -147,12 +147,12 @@ int PrintNum(int num, uint16_t color = WHITE){
 }
 
 const char ch[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
-__attribute__((regparm(1)))
+__attribute__((regparm(2)))
 void PrintHex(char num, uint16_t color = WHITE){
 	PrintChar(ch[(num>>4)&0xF],color);
 	PrintChar(ch[(num)&0xF],color);
 }
-__attribute__((regparm(1)))
+__attribute__((regparm(2)))
 void PrintHex2(uint16_t num, uint16_t color = WHITE){
 	PrintHex(char((num >> 8) & 0xFF),color);
 	PrintHex(char((num) & 0xFF),color);

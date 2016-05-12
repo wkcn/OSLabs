@@ -14,6 +14,7 @@
 	;返回信号量(ax)
 */
 #include "defines.h"
+#include "sem.h"
 #include "portsList.h"
 
 __attribute__((regparm(3)))
@@ -68,5 +69,31 @@ uint8_t GetPortMsgV(uint8_t portID){
 			:"a"((5<<8) | portID)
 			);
 	return v;
+}
+
+/*端口信号量支持*/
+
+__attribute__((regparm(2)))
+void PortSemCreate(uint8_t portID, int8_t count){
+	SetPortMsgV(portID, semCreate(count));
+}
+
+__attribute__((regparm(1)))
+void PortSemDel(uint8_t portID){
+	uint8_t sid = GetPortMsgV(portID);
+	semDel(sid);
+}
+
+
+__attribute__((regparm(1)))
+void PortSemWait(uint8_t portID){
+	uint8_t sid = GetPortMsgV(portID);
+	semWait(sid);
+}
+
+__attribute__((regparm(1)))
+void PortSemSignal(uint8_t portID){
+	uint8_t sid = GetPortMsgV(portID);
+	semSignal(sid);
 }
 #endif

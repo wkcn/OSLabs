@@ -74,7 +74,8 @@ enum Color{
 	LWHITE
 };
 
-void memcpy(void *dest,void *src,int size){
+__attribute__((regparm(3)))
+void memcpy(void *dest,const void *src,int size){
 	for (int i = 0;i < size;++i){
 		*(((char*)dest)+i) = *(((char*)src)+i);
 	}
@@ -109,7 +110,6 @@ typedef uint32_t dd;
 typedef uint64_t dq;
 
 extern "C" uint16_t GetKey();
-extern "C" void memcpy(void *dest,const void *src,uint16_t n);
 
 #define max(a,b) ((a)>(b)?(a):(b))
 #define min(a,b) ((a)<(b)?(a):(b))

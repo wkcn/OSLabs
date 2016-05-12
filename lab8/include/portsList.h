@@ -3,7 +3,9 @@
 
 enum PORTS_LIST{
 	READYPROG_PORT = 3,
-	TALK_PORT = 5
+	RUNPROGRETN_PORT = 4,
+	TALK_PORT = 5,
+	SHELLMODE_PORT = 6
 };
 
 #endif

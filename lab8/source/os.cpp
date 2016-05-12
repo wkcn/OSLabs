@@ -5,28 +5,15 @@
 #include "version.h"
 #include "pcb.h"
 #include "interrupt.h"
+#include "os_sem.h"
 #include "port.h"
 #include "mem_base.h"
-#include "os_sem.h"
 #include "prog.h"
 
-const char *OS_INFO = "MiraiOS 0.5";
-const char *PROMPT_INFO = "wkcn > ";
-const char *NOPROG_INFO = "No User Process is Running!";
-const char *BATCH_INFO = "Batching Next Program: ";
-const char *LS_INFO = "Please Input These Number to Run a Program or more :-)\n\r1,2,3,4 - 45 angle fly char\n\r5 Draw my name";
-
-const uint16_t maxBufSize = 128;
-char buf[maxBufSize]; // 指令流
 const uint16_t talkBufSize = 128;
 char talkBuffer[talkBufSize];
-int bufSize = 0;
-int par[16][2];
-int parSize = 0;
-int batchList[5] = {5,1,2,3,4};
-int batchID = 0;
-int batchSize = 0;
 ReadyProg readyProg;
+uint16_t RunProgRetn;
 
 //Kernel_Memory
 const uint16_t MaxBlockNum = 127;
@@ -35,23 +22,14 @@ MemBlock memdata[MaxBlockNum + 1];
 MemRecord memRecord;
 
 
-//extern "C" void WritePCB(uint16_t addr);
-extern "C" uint16_t ShellMode;
 extern "C" uint16_t RunNum;
 extern "C" const uint8_t INT09H_FLAG;
 extern "C" uint16_t INT_INFO; //中断信号 
 
-void KillAll(){
-	for (uint8_t i = 1;i < MaxRunNum;++i){
-		uint8_t state = GetTaskState(i);
-		if (state != T_EMPTY){
-			SetTaskState(i, T_DEAD);
-		}
-	}
-}
+char shellName[12] = "SHELL   COM";
 
 __attribute__((regparm(2)))
-int RunProg(char *filename, uint16_t allocatedSize = 0){
+uint16_t RunProg(char *filename, uint16_t allocatedSize = 0){
 	if (RunNum >= MaxRunNum)return 0;
 	uint16_t offset = 0x100;
 	uint16_t si = GetFileSize(filename);
@@ -102,6 +80,7 @@ int RunProg(char *filename, uint16_t allocatedSize = 0){
 	return si;
 }
 
+
 __attribute__((regparm(1)))
 int RunProg(int i){
 	if (i == 5){
@@ -139,258 +118,13 @@ void MEM(){
 	PrintStr(" Kbytes\r\n");
 }
 
-void Top(){
-	PrintStr(" PID Name         PR  Size    SEG     CS      IP      Parent  State\r\n", LBLUE);
-	for (uint16_t t = 0;t < MaxRunNum;++t){
-		LoadPCB(t);
-		if (_p.STATE == T_EMPTY)continue;
-		uint16_t count = 0;
-		PrintChar(' ');
-		count = PrintNum(_p.ID);
-		for (uint16_t i = count;i < 4;++i)PrintChar(' ');
-		if (t == 0){
-			PrintStr("Mirai-Shell", CYAN);
-		}else{
-			for (count = 0;count < 11 && _p.NAME[count] != ' ';++count){
-				PrintChar(_p.NAME[count], CYAN);
-			}
-		}
-
-
-		PrintStr("  ");
-		count = PrintNum(_p.PRIORITY);
-		for (int i = count;i < 4;++i)PrintChar(' ');
-
-		count = PrintNum(_p.SIZE);
-		for (int i = count;i < 8;++i)PrintChar(' ');
-
-		PrintStr("0x");
-		PrintHex2(_p.SEG);
-		PrintStr("  ");
-
-		PrintStr("0x");
-		PrintHex2(_p.CS);
-		PrintStr("  ");
-
-		PrintStr("0x");
-		PrintHex2(_p.IP);
-		PrintStr("  ");
-
-		count = PrintNum(_p.PARENT_ID);
-		for (int i = count;i < 8;++i)PrintChar(' ');
-
-
-		switch (_p.STATE){
-			case T_RUNNING:
-				PrintStr("Running",LGREEN);
-				break;
-			case T_READY:
-				PrintStr("Ready",LRED);
-				break;
-			case T_SUSPEND:
-				PrintStr("Suspend",LBLUE);
-				break;
-			case T_DEAD:
-				PrintStr("Dead",RED);
-				break;
-			case T_BLOCKED:
-				PrintStr("Blocked",YELLOW);
-				break;
-		}
-		PrintStr(NEWLINE);
-	}
-}
-
-
-void top(){
-	PrintStr(" There are ");
-	PrintNum(RunNum,WHITE);
-	PrintStr(" Progresses :-)",WHITE);
-	PrintStr(NEWLINE,WHITE);
-	Top();
-}
-
-void uname(){
-	PrintStr(OS_INFO,LGREEN);
-	PrintStr(" #",LGREEN);
-	PrintNum(RELEASE_TIMES,LGREEN);
-	PrintStr(NEWLINE);
-}
-__attribute__((regparm(2)))
-void PrintInfo(const char* str, uint16_t color){
-	PrintStr(PROMPT_INFO,LCARM);
-	PrintStr(str,color);
-	PrintStr(NEWLINE,color);
-}
-
-__attribute__((regparm(1)))
-bool CommandMatch(const char* str){
-	return (!strcmp(buf + par[0][0], str));
-}
-
-__attribute__((regparm(1)))
-int GetNum(int i){
-	//i = 0 为命令
-	//第一个参数 i = 1
-	int j = par[i][0];
-	int k = par[i][1];
-	int res = 0;
-	if (buf[k-1] == 'h' || buf[k-1] == 'H'){
-		k--;
-		for (;j<k;++j){
-			char c = buf[j];
-			res *= 16;
-			if (c >= '0' && c <= '9'){
-				res += c - '0';
-			}else if (c >= 'A' && c <= 'F'){
-				res += c - 'A' + 10;
-			}else if (c >= 'a' && c <= 'f'){
-				res += c - 'a' + 10;
-			}
-		}
-	}else{
-		for (;j<k;++j){
-			char c = buf[j];
-			res = res * 10 + c - '0';
-		}
-	}
-	return res;
-}
-
-__attribute__((regparm(1)))
-bool IsNum(int i){
-	int j = par[i][0];
-	int k = par[i][1];
-	if (j >= k)return false;
-	bool hex = false;
-	if (buf[k-1] == 'h' || buf[k-1] == 'H'){
-		hex = true;
-		k--;
-	}
-	for (;j<k;++j){
-		char c = buf[j];
-		if (c < '0' || c > '9' || (hex && ((c >='a' && c<='f') || (c >= 'A' && c <= 'F'))))return false;
-	}
-	return true;
-}
-
-
-void PR(){
-	//pr id value
-	uint8_t id = GetNum(1);
-	if (GetTaskState(id) != T_EMPTY){
-		uint8_t value = GetNum(2);
-		if (value > 10)value = 10;
-		SetTaskAttr(id,&_p.PRIORITY,value);
-	}
-}
-
-void Execute(){  
-	if (bufSize <= 0)return;
-	batchSize = 0;
-	batchID = 0;
-	for (int i = 0;i < bufSize && batchSize < 5;++i){
-		char c = buf[i];
-		int y = c - '0';
-		if (y >= 1 && y <= 5){
-			batchList[batchSize++] = y;
-		}else{
-			if (c != ' ')break;
-		}
-	}
-	if (batchSize == 1){
-		batchSize = 0;
-	}
-	if (batchSize >= 2){
-		return;
-	}
-	buf[bufSize] = ' ';
-	//以空格为分隔符号,最多十六个参数
-	int i,j;
-	i = 0; j = 0;
-	while (i < 16 && j < bufSize){
-		for (;buf[j] == ' ' && j < bufSize;++j){
-			buf[j] = 0;
-		}
-		par[i][0] = j;
-		for (;buf[j] != ' ' && j < bufSize;++j);
-		if (buf[j] == ' ')buf[j] = 0;
-		par[i][1] = j;
-		if (par[i][1] <= par[i][0])break;
-		++j;
-		++i;
-		parSize = i;
-	}
-	if (CommandMatch("uname")){
-		uname();
-	}else if (CommandMatch("top")){
-		top();
-	}else if (CommandMatch("cls")){
-		cls();
-	}else if (CommandMatch("r")){
-		if(RunNum > 1){
-			ShellMode = 1;
-			SetAllTask(T_RUNNING,T_SUSPEND);
-			cls();
-		}else{
-			PrintInfo(NOPROG_INFO, RED);
-		}
-	}else if(CommandMatch("killall")){
-		KillAll();
-		cls();
-	}else if(CommandMatch("k") || CommandMatch("kill")){
-		for(int q=1;q<parSize;++q)KillTask(GetNum(q));
-	}else if(CommandMatch("wake")){
-		for(int q=1;q<parSize;++q)SetTaskState(GetNum(q),T_RUNNING,T_SUSPEND);
-	}else if(CommandMatch("int")){
-		uint16_t id = GetNum(1);
-		if (false &&  !(id >= 0x33 && id <= 0x36)){
-			PrintStr("Sorry, You are allowed to use int 33 to int 36!\r\n",RED);
-		}else
-			ExecuteINT(id);
-	}else if(CommandMatch("suspend")){
-		for(int q=1;q<parSize;++q)SetTaskState(GetNum(q),T_SUSPEND,T_RUNNING);
-	}else if(CommandMatch("pr")){
-		PR();
-	}else if(CommandMatch("mem")){
-		MEM();
-	}else if (IsNum(0)){
-		for (int k = 0;k < parSize && buf[k];++k){
-			char c = buf[k];
-			int y = c - '0';
-			if (y >= 1 && y <=5){
-				RunProg(y);
-			}
-		}
-		//CLS();
-		ShellMode = 1;
-	}else{
-		//Check File
-		char filename[12] = "        COM";
-		for (int i = 0;i < 11;++i){
-			char c = buf[i];
-			if (c == '.' || c == 0)break;
-			if (c >= 'a' && c <= 'z')c = c - 'a' + 'A';
-			filename[i] = c;
-		}
-		uint16_t allocatedSize = 0;
-		if (parSize > 1){
-			allocatedSize = GetNum(1);
-		}
-		if(RunProg(filename, allocatedSize)){
-			ShellMode = 1;
-		}else 
-			PrintInfo("Command not found, Input \'help\' to get more info",RED);
-	}
-	bufSize = 0;
-}
-
-
 void int_23h(){
 	CPP_INT_HEADER;
 	/*
 	 * ah = 00h, 释放段地址bx， 段大小为cx的内存
 	 * ah = 01h, 申请段大小为cx的内存， 返回值为段地址
+	 * ah = 10h, MEM()
+	 * ah = 20h, SetShellMode = al
 	 */
 	uint16_t ax, bx, cx, dx;
 	asm volatile("":"=a"(ax),"=b"(bx),"=c"(cx),"=d"(dx));
@@ -403,6 +137,13 @@ void int_23h(){
 		case 0x01:
 			bx = mem_allocate(memRecord,cx);
 			asm volatile("mov ax, bx;"::"b"(bx));
+			break;
+		case 0x10:
+			MEM();
+			break;
+		case 0x20:
+			dx = ax & 0xFF;
+			WritePort(SHELLMODE_PORT, &dx, sizeof(dx));
 			break;
 	}
 	CPP_INT_LEAVE;
@@ -468,20 +209,20 @@ void int_25h(){
 	 * 以上sid为al
 	 */
 	if (ah == 0x00){
-		uint8_t sid = semCreate(al);
+		uint8_t sid = os_semCreate(al);
 		asm volatile("mov ax, bx;"::"b"((uint16_t)sid));
 	}else if (ah == 0x01){
-		semWait(al);
+		os_semWait(al);
 		//PrintStr("wait");
 		//PrintNum(al);
 	}else if (ah == 0x02){
 		//PrintStr("sig");
 		//PrintNum(al);
-		semSignal(al);
+		os_semSignal(al);
 	}else if (ah == 0x04){
-		semDel(al);
+		os_semDel(al);
 	}else if (ah == 0x05){
-		semRelease(al); // 根据RunID删除
+		os_semRelease(al); // 根据RunID删除
 	}
 	CPP_INT_LEAVE;
 }
@@ -511,99 +252,42 @@ int main(){
 	INIT_MEMORY();
 	INIT_SEM();
 	WriteUserINT();
-	SetPort(READYPROG_PORT,(void*)&readyProg,sizeof(ReadyProg));
+	// 初始化端口
+	SetPort(READYPROG_PORT,&readyProg,sizeof(ReadyProg));
+	SetPort(RUNPROGRETN_PORT, &RunProgRetn, sizeof(RunProgRetn));
+	PortSemCreate(RUNPROGRETN_PORT, 0);
+
 	SetPort(TALK_PORT,talkBuffer,talkBufSize);
-	cls();
-	uname();
-	DrawText("You can input \'help\' to get more info",1,0,LGREEN);	
-	SetCursor(2,0);
+
+	RunProg(shellName);
+
 	while(1){
+
 		if (INT_INFO >= 1 && INT_INFO <= 5){
 			RunProg(INT_INFO);
 			INT_INFO = 0;
-			ShellMode = 1;
-		}
-		//Tab
-		uint16_t key = getkey();
-		if (key == KEY_CTRL_C){
-			cls();
-		}
-		//ShellMode = 0时, 为Shell操作
-		if (ShellMode){
-			//ShellMode = 1时, 切换到程序执行
-			if (key == KEY_CTRL_Z || key == KEY_ESC){
-				ShellMode = 0;
-				if (key == KEY_CTRL_Z){
-					KillAll();
-				}else{
-					SetAllTask(T_SUSPEND,T_RUNNING);
-				}
-				cls();
-			}
-			if (RunNum <= 1){
-				ShellMode = 0;
-			}
-
-			if (INT09H_FLAG){
-				DrawText("Ouch! Ouch!",24,65,YELLOW);
-			}else{
-				DrawText("           ",24,65,YELLOW);
-			}
-			continue;
-		}
-		//非Shell
-		//
-		if (batchSize > 0 && batchID < batchSize){
-			PrintStr(BATCH_INFO,YELLOW);
-			int id = batchList[batchID++];
-			PrintChar(id + '0',YELLOW);
-			sleep(1);
-			cls();
-			RunProg(id);
-			ShellMode = 1;
-			continue;
+			//ShellMode = 1;
 		}
 
-		PrintStr(PROMPT_INFO,LCARM);
-		buf[0] = 0;
-		bufSize = 0; // clean buf
-		while(1){
+		if (INT09H_FLAG){
+			DrawText("Ouch! Ouch!",24,65,YELLOW);
+		}else{
+			DrawText("           ",24,65,YELLOW);
+		}
 
-			if (GetPortMsgV(TALK_PORT)){
-				PrintStr(talkBuffer);
-				SetPortMsgV(TALK_PORT,0);
-				PrintStr(NEWLINE);
-				break;
-			}
+		if (GetPortMsgV(TALK_PORT)){
+			PrintStr(talkBuffer);
+			SetPortMsgV(TALK_PORT,0);
+			PrintStr(NEWLINE);
+		}
 
-			if (GetPortMsgV(READYPROG_PORT)){
-				PrintStrN(readyProg.filename,11);
-				PrintNum(readyProg.allocateSize,RED);
-				RunProg(readyProg.filename, readyProg.allocateSize);
-				SetPortMsgV(READYPROG_PORT,0);
-				break;
-			}
+		if (GetPortMsgV(READYPROG_PORT)){
+			RunProgRetn = RunProg(readyProg.filename, readyProg.allocatedSize);
+			PortSemSignal(RUNPROGRETN_PORT);
+			SetPortMsgV(READYPROG_PORT, 0);
+		}
 
-			char c = getchar();
-			 if (c == '\r'){
-				PrintStr(NEWLINE);
-				Execute();
-				break;
-			}else if (c == '\b'){
-				if (bufSize > 0){
-					PrintChar('\b');
-					PrintChar(' ');
-					PrintChar('\b');
-					buf[--bufSize] = 0;
-				}
-			}else {
-				if (bufSize < maxBufSize - 1){
-					PrintChar(c, WHITE);
-					buf[bufSize++] = c;
-					buf[bufSize] = 0;
-				}
- 			}
- 		}
- 	 }  
+
+	}
 	return 0;
 } 

@@ -208,4 +208,8 @@ uint16_t GetRunID(){
 
 #define INC_RunNum asm volatile("sti;int 0x21;"::"a"(0x0900))
 
+#define GetRunNum asm volatile("int 0x21;":"=a"(RunNum):"a"(0x0a00))
+
+#define GetMaxRunNum asm volatile("int 0x21;":"=a"(MaxRunNum):"a"(0x0600))
+
 #endif
