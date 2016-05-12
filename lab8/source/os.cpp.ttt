@@ -10,9 +10,6 @@
 #include "mem_base.h"
 #include "prog.h"
 
-const uint8_t UserNum = 2;
-//char ScreenSaver[UserNum][80 * 25 * 2];
-
 const uint16_t talkBufSize = 128;
 char talkBuffer[talkBufSize];
 ReadyProg readyProg;
@@ -114,7 +111,6 @@ void int_23h(){
 	 * ah = 00h, 释放段地址bx， 段大小为cx的内存
 	 * ah = 01h, 申请段大小为cx的内存， 返回值为段地址
 	 * ah = 10h, MEM()
-	 * ah = 20h, SetShellMode = al
 	 */
 	uint16_t ax, bx, cx, dx;
 	asm volatile("":"=a"(ax),"=b"(bx),"=c"(cx),"=d"(dx));
@@ -130,10 +126,6 @@ void int_23h(){
 			break;
 		case 0x10:
 			MEM();
-			break;
-		case 0x20:
-			dx = ax & 0xFF;
-			WritePort(SHELLMODE_PORT, &dx, sizeof(dx));
 			break;
 	}
 	CPP_INT_LEAVE;
@@ -249,16 +241,8 @@ int main(){
 
 	SetPort(TALK_PORT,talkBuffer,talkBufSize);
 
-	// 内核进程号为0
-	// Shell编号: 1, 2, 3, 4 ...
-	ScheduleOFF;
-	for (uint8_t i = 1;i <= UserNum;++i){
-		UserID = i;
-		RunProg(shellName);
-	}
-	//切换为用户1
 	UserID = 1;
-	ScheduleON;
+	RunProg(shellName);
 
 	while(1){
 

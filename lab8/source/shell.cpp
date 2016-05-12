@@ -16,6 +16,7 @@ const char *LS_INFO = "Please Input These Number to Run a Program or more :-)\n\
 
 uint16_t ShellMode = 0;
 uint8_t UserID;
+uint16_t RunNum = 0;
 
 const uint16_t maxBufSize = 128;
 char buf[maxBufSize]; // 指令流
@@ -30,6 +31,17 @@ int batchID = 0;
 int batchSize = 0;
 
 ReadyProg readyprog;
+
+void UpdateRunNum(){
+	RunNum = 0;
+	for (uint8_t t = 0;t < MaxRunNum;++t){
+		if (GetTaskState(t) == T_EMPTY)continue;
+		uint8_t uid;
+		GetTaskAttr(t, &_p.UID, uid);
+		if (uid != UserID)continue;
+		++RunNum;
+	}
+}
 
 void KillAll(){
 	uint8_t uid;
@@ -167,16 +179,14 @@ void PR(){
 	}
 }
 
+void PrintUID(){
+	PrintStr("UserID: ");
+	PrintNum(UserID);
+	PrintStr(NEWLINE);
+}
 
 void top(){
-	uint16_t RunNum = 0;
-	for (uint8_t t = 0;t < MaxRunNum;++t){
-		if (GetTaskState(t) == T_EMPTY)continue;
-		uint8_t uid;
-		GetTaskAttr(t, &_p.UID, uid);
-		if (uid != UserID)continue;
-		++RunNum;
-	}
+	UpdateRunNum();
 	PrintStr(" There are ");
 	PrintNum(RunNum,WHITE);
 	PrintStr(" Progresses :-)",WHITE);
@@ -185,7 +195,7 @@ void top(){
 	for (uint16_t t = 0;t < MaxRunNum;++t){
 		LoadPCB(t);
 		if (_p.STATE == T_EMPTY)continue;
-		if (_p.UID != UserID)continue;
+		//if (_p.UID != UserID)continue;
 		uint16_t count = 0;
 		PrintChar(' ');
 		count = PrintNum(_p.ID);
@@ -284,6 +294,36 @@ void Execute(){
 		uname();
 	}else if (CommandMatch("top")){
 		top();
+	}else if (CommandMatch("uid")){
+		PrintUID();
+	}else if (CommandMatch("cls")){
+		cls();
+	}else if (CommandMatch("r")){
+		uint16_t RunNum;
+		GetRunNum;
+		if(RunNum > 1){
+			ShellMode = 1;
+			SetAllTask(T_RUNNING,T_SUSPEND);
+			cls();
+		}else{
+			PrintInfo(NOPROG_INFO, RED);
+		}
+	}else if(CommandMatch("killall")){
+		KillAll();
+		cls();
+	}else if(CommandMatch("k") || CommandMatch("kill")){
+		for(int q=1;q<parSize;++q)KillTask(GetNum(q));
+	}else if(CommandMatch("wake")){
+		for(int q=1;q<parSize;++q)SetTaskState(GetNum(q),T_RUNNING,T_SUSPEND);
+	}else if(CommandMatch("int")){
+		uint16_t id = GetNum(1);
+		if (false &&  !(id >= 0x33 && id <= 0x36)){
+			PrintStr("Sorry, You are allowed to use int 33 to int 36!\r\n",RED);
+		}else
+			ExecuteINT(id);
+	}else if(CommandMatch("suspend")){
+		for(int q=1;q<parSize;++q)SetTaskState(GetNum(q),T_SUSPEND,T_RUNNING);
+	}else if(CommandMatch("pr")){
 	}else if (CommandMatch("cls")){
 		cls();
 	}else if (CommandMatch("r")){
@@ -354,7 +394,6 @@ int main(){
 	DrawText("You can input \'help\' to get more info",1,0,LGREEN);	
 	SetCursor(2,0);
 	while(1){
-		SetPort(SHELLMODE_PORT, &ShellMode, sizeof(ShellMode));
 		//Tab
 		uint16_t key = getkey();
 		if (key == KEY_CTRL_C){
@@ -373,11 +412,8 @@ int main(){
 				cls();
 			}
 
-			uint16_t RunNum;
-			GetRunNum;
-			if (RunNum <= 1){
-				ShellMode = 0;
-			}
+			UpdateRunNum();
+			if (RunNum <= 1)ShellMode = 0;
 			continue;
 		}
 		//非Shell

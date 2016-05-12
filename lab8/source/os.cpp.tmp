@@ -10,7 +10,7 @@
 #include "mem_base.h"
 #include "prog.h"
 
-const uint8_t UserNum = 2;
+const uint8_t UserNum = 4;
 //char ScreenSaver[UserNum][80 * 25 * 2];
 
 const uint16_t talkBufSize = 128;
@@ -251,14 +251,12 @@ int main(){
 
 	// 内核进程号为0
 	// Shell编号: 1, 2, 3, 4 ...
-	ScheduleOFF;
-	for (uint8_t i = 1;i <= UserNum;++i){
-		UserID = i;
+	//for (uint8_t i = 1;i <= UserNum;++i){
+		UserID = 1;
 		RunProg(shellName);
-	}
+	//}
 	//切换为用户1
-	UserID = 1;
-	ScheduleON;
+	//UserID = 1;
 
 	while(1){
 

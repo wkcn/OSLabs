@@ -41,7 +41,7 @@ build_progs: shell.com\
 			wkcn1.com wkcn2.com wkcn3.com wkcn4.com kan.com\
    			bs.com bpb.com ls.com help.com\
 			box.com\
-		   	testint.com testport.com testnew.com\
+		   	testport.com testnew.com\
 			fork1.com fork2.com alpha.com\
 			mat.com letter.com fruit.com
 

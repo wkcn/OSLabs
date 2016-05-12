@@ -6,7 +6,6 @@ BITS 16
 [global UserID]
 
 [global INT09H_FLAG]
-[global INT_INFO]
 
 ;16k = 0x4000
 ;4M = 0x4 0 0000
@@ -47,12 +46,6 @@ UpdateTimes equ 20
 	WriteIVT 21h,WKCNINT21H ; 进程功能
 	WriteIVT 22h,WKCNINT22H ; 进程通信
 
-	WriteIVT 33h,_INT_33h
-	WriteIVT 34h,_INT_34h
-	WriteIVT 35h,_INT_35h
-	WriteIVT 36h,_INT_36h
-
-
 _start:
 
 	mov ax, PCB_SEGMENT
@@ -75,27 +68,6 @@ _start:
 	sti
 
 	jmp main
-
-
-%macro IVT_INFO 2
-; 中断号, 中断信号量
-_INT_%1:
-	push ax
-	mov ax, %2
-WAIT_INT_INFO_ZERO_%1: 
-	sti
-	cmp word [cs:INT_INFO], 0
-	jne WAIT_INT_INFO_ZERO_%1
-
-	mov [cs:INT_INFO], ax
-	pop ax
-	iret
-%endmacro
-
-IVT_INFO 33h,1 
-IVT_INFO 34h,2 
-IVT_INFO 35h,3 
-IVT_INFO 36h,4 
 
 %macro SaveReg 1
 	mov ax, %1
@@ -128,9 +100,6 @@ WKCNINT20H:
 	push bx
 	push ax
 	
-	mov ax, 0x2000
-	sti
-	int 23h
 	;切换到ShellMode
 	mov ax, [cs:RunID]
 	mov bx, PCBSize
@@ -180,9 +149,7 @@ WKCNINT21H:
 
 	;AH = 00h
 	TabShellMode:
-	mov ah, 0x20
-	sti
-	int 23h
+	nop
 	jmp INT21HEND
 
 	;AH = 01h
@@ -455,10 +422,6 @@ WKCNINTTimer:
 	;假如不是Running态, 不能继续运行
 	cmp byte [es:(bx + _STATE_OFFSET)], 1
 	jne FindUserProg
-	;判断是否为当前用户的进程
-	mov dl, [cs:UserID]
-	cmp byte [es:(bx + _UID_OFFSET)], dl
-	jne FindUserProg
 	mov dl, byte [ds:PRIORITY_COUNT]
 	inc byte [ds:PRIORITY_COUNT]
 	;bx 还是之前程序的PCB偏移
@@ -483,6 +446,11 @@ WKCNINTTimer:
 	pop ax
 
 	xor dx, dx
+	; 判断是否当前用户
+	mov dl, byte [es:(si + _UID_OFFSET)]
+	cmp byte [cs:UserID], dl
+	jne FindUserProg
+	;判断状态
 	mov dl, byte [es:(si + _STATE_OFFSET)]
 	shl dx, 1
 	mov di, dx
@@ -622,7 +590,6 @@ DATA:
 	CX_SAVE dw 0
 	DX_SAVE dw 0
 IVT:
-	INT_INFO dw 0
 	INT09HORG dd 0
 	INT09H_FLAG db 0
 PCBCONST:
