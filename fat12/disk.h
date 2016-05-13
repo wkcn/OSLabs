@@ -1,8 +1,15 @@
 #ifndef _DISK_H_
 #define _DISK_H_
 
+#include <fstream>
+#include <iostream>
 #include <stdint.h>
+using namespace std;
 
+typedef char db;
+typedef uint16_t dw;
+typedef uint32_t dd;
+typedef uint64_t dq;
 
 #pragma pack (1) // 按1字节对齐
 struct FAT12Header{
@@ -49,7 +56,7 @@ struct Entry{
 };
 
 __attribute__((regparm(3)))
-void ReadFloppy(uint16_t sectorID, uint8_t sectorNum, void *data){
+void ReadFloppy(uint16_t sectorID, uint8_t sectorNum, char *data){
 	ifstream fin("disk.img", ios::binary);
 	fin.seekg(sectorID * 512, ios::beg);
 	fin.read(data, sectorNum * 512);
@@ -72,7 +79,7 @@ bool FindEntry(char *filename, Entry *e){
 			} 
 			if (!can)continue;
 			//FOUND_ENTRY
-			return true
+			return true;
 		}
 	}
 	return false;
@@ -95,27 +102,57 @@ uint16_t GetNextFat(uint16_t u){
 	return w;
 }
 
-struct fstream{
+struct File{
+	char filename[11];
 	Entry e;
 	uint16_t _g,_p;
 	bool eofed;
 	__attribute__((regparm(1)))
-	void open(char *filename){
-		FindEntry(filename, &e);
+	void open(const char *filename){
+		memcpy(this->filename, filename, 11);
 		_g = _p = 0;
 	}
+	uint16_t size(){
+		return e.DIR_FileSize;
+	}
 	__attribute__((regparm(1)))
-	void read(char *data){
+	void seekg(uint16_t g){
+		_g = g;
+	}
+	__attribute__((regparm(1)))
+	void seekp(uint16_t p){
+		_p = p;
+	}
+	__attribute__((regparm(1)))
+	bool read(char *data, uint16_t size){
+		FindEntry(filename, &e);
+		// _g
+		uint16_t s = _g / 512; // 第几块
+		uint16_t o = _g % 512; // 块中偏移字节
+		//跳转到第s块
 		uint16_t u = e.DIR_FstClus;
-		uint16_t offset = 0;
-		while (!(u >= 0xFF8)){
-			int y = 33 + (u - 2);
-			ReadFloppy(y,1,buf);
-			uint16_t si = min(512, e.DIR_FileSize - offset);
-			memcpy(data + offset, buf, si); // 拷贝数据到data
-			offset += 512;
+		for (uint16_t sc = 0;sc < s;++sc){
 			u = GetNextFat(u);
-		} 
+			if (u >= 0xFF8)return false;
+		}
+		ReadFloppy((33 + (u - 2)),1,buf);
+		// 开始写入到data
+		for (uint16_t i = 0;i < size;++i){
+			if (o >= 512){
+				//当前扇区已经读完
+				u = GetNextFat(u);
+				if (u >= 0xFF8)return false;
+				ReadFloppy((33 + (u - 2)),1,buf);
+				o = 0;
+			}
+			data[i] = buf[o++];
+		}
+		//更新_g
+		_g += size;
+		return true;
+	}
+	__attribute__((regparm(1)))
+	bool write(char *data, uint16_t size){
 	}
 };
 
