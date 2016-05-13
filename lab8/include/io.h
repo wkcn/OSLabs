@@ -4,9 +4,9 @@
 #include "defines.h"
 
 
-char getchar(){
+uint16_t getchar(){
 	// 获得一个按键（需等待）
-	char ch;
+	uint16_t ch;
 	asm volatile("int 0x16;"
 			:"=a"(ch)
 			:"a"(0x1000)

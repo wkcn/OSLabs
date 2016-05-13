@@ -109,8 +109,6 @@ typedef uint16_t dw;
 typedef uint32_t dd;
 typedef uint64_t dq;
 
-extern "C" uint16_t GetKey();
-
 #define max(a,b) ((a)>(b)?(a):(b))
 #define min(a,b) ((a)<(b)?(a):(b))
 

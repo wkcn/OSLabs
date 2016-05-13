@@ -9,7 +9,7 @@ BITS 16
 
 ;16k = 0x4000
 ;4M = 0x4 0 0000
-MaxRunNum equ 32
+MaxRunNum equ 128
 MSG_SEGMENT equ 4000h
 PCB_SEGMENT equ MSG_SEGMENT + 100h 
 PROG_SEGMENT equ PCB_SEGMENT + (MaxRunNum * PCBSize / 16)

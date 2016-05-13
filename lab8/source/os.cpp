@@ -9,9 +9,11 @@
 #include "port.h"
 #include "mem_base.h"
 #include "prog.h"
+#include "screen.h"
 
-const uint8_t UserNum = 2;
-//char ScreenSaver[UserNum][80 * 25 * 2];
+const uint8_t UserNum = 4;
+char ScreenSaver[UserNum][80 * 25 * 2];
+uint16_t cursors[UserNum];
 
 const uint16_t talkBufSize = 128;
 char talkBuffer[talkBufSize];
@@ -30,6 +32,19 @@ extern "C" uint8_t UserID;
 extern "C" const uint8_t INT09H_FLAG;
 
 char shellName[12] = "SHELL   COM";
+
+__attribute__((regparm(2)))
+void TabUser(uint8_t uid){
+	//uid = 1, 2, 3, 4, 5
+	//切换用户
+	SaveScreen(ScreenSaver[UserID - 1]);
+	LoadScreen(ScreenSaver[uid - 1]);
+	//Save Cursor
+	cursors[UserID - 1] = GetCursor();
+	//Load Cursor
+	SetCursor(cursors[uid-1]>>8, cursors[uid-1]&0xFF);		
+	UserID = uid; 
+}
 
 __attribute__((regparm(2)))
 uint16_t RunProg(char *filename, uint16_t allocatedSize = 0){
@@ -115,6 +130,7 @@ void int_23h(){
 	 * ah = 01h, 申请段大小为cx的内存， 返回值为段地址
 	 * ah = 10h, MEM()
 	 * ah = 20h, SetShellMode = al
+	 * ah = 21h, TabUser
 	 */
 	uint16_t ax, bx, cx, dx;
 	asm volatile("":"=a"(ax),"=b"(bx),"=c"(cx),"=d"(dx));
@@ -134,6 +150,9 @@ void int_23h(){
 		case 0x20:
 			dx = ax & 0xFF;
 			WritePort(SHELLMODE_PORT, &dx, sizeof(dx));
+			break;
+		case 0x21:
+			TabUser(ax & 0xFF);
 			break;
 	}
 	CPP_INT_LEAVE;
@@ -279,7 +298,6 @@ int main(){
 			PortSemSignal(RUNPROGRETN_PORT);
 			SetPortMsgV(READYPROG_PORT, 0);
 		}
-
 
 	}
 	return 0;

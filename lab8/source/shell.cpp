@@ -195,7 +195,7 @@ void top(){
 	for (uint16_t t = 0;t < MaxRunNum;++t){
 		LoadPCB(t);
 		if (_p.STATE == T_EMPTY)continue;
-		//if (_p.UID != UserID)continue;
+		if (_p.UID != UserID)continue;
 		uint16_t count = 0;
 		PrintChar(' ');
 		count = PrintNum(_p.ID);
@@ -386,6 +386,20 @@ void Execute(){
 	bufSize = 0;
 }
 
+__attribute__((regparm(1)))
+bool JudgeKey(uint16_t key){
+	if (key == KEY_CTRL_C){
+		cls();
+		return true;
+	}
+	if (key >= KEY_ALT_1 && key <= KEY_ALT_4){
+		uint16_t uid = ((key - KEY_ALT_1) >> 8) + 1;
+		asm volatile("int 0x23;"::"a"(0x2100 | uid));
+		return true;
+	}	
+	return false;
+}
+
 int main(){
 	INIT_SEGMENT();
 	UserID = GetRunID();
@@ -394,11 +408,11 @@ int main(){
 	DrawText("You can input \'help\' to get more info",1,0,LGREEN);	
 	SetCursor(2,0);
 	while(1){
-		//Tab
 		uint16_t key = getkey();
-		if (key == KEY_CTRL_C){
-			cls();
-		}
+		if (JudgeKey(key))continue;
+
+		JudgeKey(key);
+
 		//ShellMode = 0时, 为Shell操作
 		if (ShellMode){
 			//ShellMode = 1时, 切换到程序执行
@@ -433,8 +447,10 @@ int main(){
 		buf[0] = 0;
 		bufSize = 0; // clean buf
 		while(1){
-			char c = getchar();
-			 if (c == '\r'){
+			uint16_t key = getchar();
+			if(JudgeKey(key))continue;
+			char c = key & 0xFF;
+			if (c == '\r'){
 				PrintStr(NEWLINE);
 				Execute();
 				break;
