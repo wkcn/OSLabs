@@ -422,6 +422,9 @@ WKCNINTTimer:
 	;假如不是Running态, 不能继续运行
 	cmp byte [es:(bx + _STATE_OFFSET)], 1
 	jne FindUserProg
+	mov dl, byte [es:(bx + _UID_OFFSET)]
+	cmp dl, byte [ds:UserID]
+	jne FindUserProg
 	mov dl, byte [ds:PRIORITY_COUNT]
 	inc byte [ds:PRIORITY_COUNT]
 	;bx 还是之前程序的PCB偏移

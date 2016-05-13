@@ -1,1 +1,1 @@
-#define RELEASE_TIMES 1010
+#define RELEASE_TIMES 1024

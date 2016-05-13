@@ -35,6 +35,7 @@ char shellName[12] = "SHELL   COM";
 
 __attribute__((regparm(2)))
 void TabUser(uint8_t uid){
+	if (!(uid >= 1 && uid <= 4))return;
 	//uid = 1, 2, 3, 4, 5
 	//切换用户
 	SaveScreen(ScreenSaver[UserID - 1]);
@@ -44,6 +45,7 @@ void TabUser(uint8_t uid){
 	//Load Cursor
 	SetCursor(cursors[uid-1]>>8, cursors[uid-1]&0xFF);		
 	UserID = uid; 
+	Schedule;
 }
 
 __attribute__((regparm(2)))
