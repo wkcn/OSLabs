@@ -125,7 +125,7 @@ struct File{
 	}
 	__attribute__((regparm(1)))
 	bool read(char *data, uint16_t size){
-		FindEntry(filename, &e);
+		if(!FindEntry(filename, &e))return false;
 		// _g
 		uint16_t s = _g / 512; // 第几块
 		uint16_t o = _g % 512; // 块中偏移字节
@@ -153,6 +153,28 @@ struct File{
 	}
 	__attribute__((regparm(1)))
 	bool write(char *data, uint16_t size){
+		if(!FindEntry(filename, &e)){
+			//建立Entry
+			/*
+				struct Entry{
+				db DIR_Name[11];
+				db DIR_Attr;
+				db temp;
+				db ratio;
+				dw DIR_WrtTime;
+				dw DIR_WrtDate;
+				dw DIR_VISDate;
+				dw FAT32_HIGH;
+				dw LAST_WrtTime;
+				dw LAST_WrtDate;
+				dw DIR_FstClus;
+				dd DIR_FileSize;
+			*/
+			memcpy(e.DIR_Name, filename, 11);
+		}
+		// _p
+		uint16_t s = _p / 512; // 第几块
+		uint16_t o = _p % 512; // 块中偏移字节
 	}
 };
 
