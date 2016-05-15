@@ -4,6 +4,7 @@
 #include <fstream>
 #include <iostream>
 #include <stdint.h>
+#include <cstring>
 using namespace std;
 
 typedef char db;
@@ -60,33 +61,87 @@ void ReadFloppy(uint16_t sectorID, uint8_t sectorNum, char *data){
 	ifstream fin("disk.img", ios::binary);
 	fin.seekg(sectorID * 512, ios::beg);
 	fin.read(data, sectorNum * 512);
+	fin.close();
 }
 
-char buf[1024]; // 全局变量
+__attribute__((regparm(3)))
+void WriteFloppy(uint16_t sectorID, uint8_t sectorNum, char *data){
+	cout << "WRITE" << sectorID << "NUM" << uint16_t(sectorNum) << endl;
+	//ofstream fout("disk.imgw", ios::binary|ios::app);
+	//fout.seekp(sectorID * 512, ios::beg);
+	//fout.write(data, sectorNum * 512);
+	//fout.close();
+	ifstream fin("disk.img",ios::binary);
+	char buf[1440 * 1024];
+	fin.read(buf,1440*1024);
+	fin.close();
+	for (int i = 0;i < sectorNum * 512;++i){
+		buf[sectorID * 512 + i] = data[i];
+	}
+	ofstream fout("disk.img",ios::binary);
+	fout.write(buf,1440*1024);
+	fout.close();
+}
+
+
 
 __attribute__((regparm(2)))
-bool FindEntry(char *filename, Entry *e){
+uint16_t FindEntry(char *filename, Entry *e){
+	char buf[512];
+	uint16_t id = 0;
 	for (int i = 19;i < 19 + 14;++i){
 		ReadFloppy(i,1,buf);
 		for (int j = 0;j < 512/32;++j){
 			memcpy(e,buf + j * 32,32);
 			bool can = true;
+			//cout << e->DIR_Name << endl;
+			//char c;
+			//cin >> c;
 			for (int k = 0;k < 11;++k){
 				if (filename[k] != e->DIR_Name[k]){
 					can = false;
 					break;
 			 	}
 			} 
-			if (!can)continue;
+			if (!can){
+				++id;
+				continue;
+			}
 			//FOUND_ENTRY
-			return true;
+			return id;
 		}
 	}
-	return false;
+	return 0xFFFF;
+}
+
+uint16_t FindEmptyEntry(){
+	char buf[512];
+	uint16_t id = 0;
+	for (int i = 19;i < 19 + 14;++i){
+		ReadFloppy(i,1,buf);
+		for (int j = 0;j < 512/32;++j){
+			if (buf[j * 32] == 0){
+				return id;
+			}
+			++id;
+		}
+	}
+	return 0xFFFF;
+}
+
+__attribute__((regparm(2)))
+void SetEntry(uint16_t id, Entry *e){
+	uint16_t q = id / (512 / 32) + 19;
+	uint16_t t = id % (512 / 32);
+	char buf[512];
+	ReadFloppy(q, 1, buf);
+	*(Entry*)(buf + 32 * t) = *e;
+	WriteFloppy(q, 1, buf);
 }
 
 __attribute__((regparm(1)))
 uint16_t GetNextFat(uint16_t u){
+	char buf[1024]; // 全局变量
 	//get fat
 	int t = u * 3 / 2;
 	int p = t / 512;
@@ -102,6 +157,68 @@ uint16_t GetNextFat(uint16_t u){
 	return w;
 }
 
+uint16_t FindEmptyClus(){
+	char buf[512 * 3];
+	uint16_t id = 0;
+	for (uint16_t q = 0;q < 9 / 3;++q){
+		ReadFloppy(1 + 3 * q, 3, buf);
+		uint16_t o = 0; 
+		bool y = 1;
+		for (uint16_t u = 0;u < 512 * 2;++u){
+			uint16_t w = *(uint16_t*)(buf + o);
+			if (u % 2 == 0){
+				w &= 0xFFF;
+			}else{
+				w = (w >> 4) & 0xFFF;
+			}
+			if (w == 0){
+				return id;
+			}
+			o += ((y)?1:2);
+			y = !y;
+			++id;
+		}
+	}
+	return 0xFFFF;
+}
+
+__attribute__((regparm(2)))
+void SetClus(uint16_t id, uint16_t value){
+	char buf[512 * 3];
+	uint16_t q = id / 1024;
+	uint16_t z = id % 1024;
+	ReadFloppy(1 + 3 * q, 3, buf);
+	uint16_t o = z * 3 / 2;
+	uint16_t w = *(uint16_t*)(buf + o);
+	value &= 0xFFF;
+	if (z % 2 == 0){
+		//low
+		w = (w & 0xF000) | value;
+	}else{
+		//high
+		w = (w & 0x000F) | (value << 4);
+	}
+	*(uint16_t*)(buf + o) = w;
+	cout << "Value" << value << "ID "<< id << " W " << w << endl;
+	WriteFloppy(1 + 3 * q, 3, buf); //FAT1
+	WriteFloppy(10 + 3 * q, 3, buf); //FAT2
+}
+
+__attribute__((regparm(1)))
+uint16_t GetNextClus(uint16_t cl){
+	uint16_t nf = GetNextFat(cl);
+	if (nf >= 0xFF8){
+		uint16_t ec = FindEmptyClus();
+		if (ec == 0xFFFF)return 0xFFFF;
+		cout << "=====" << endl;
+		SetClus(cl,ec);
+		cout << "!!!!!" << endl;
+		SetClus(ec,0x0FFF);
+		return ec;
+	}
+	return nf;	
+}
+
 struct File{
 	char filename[11];
 	Entry e;
@@ -110,6 +227,7 @@ struct File{
 	__attribute__((regparm(1)))
 	void open(const char *filename){
 		memcpy(this->filename, filename, 11);
+		FindEntry(this->filename, &e);
 		_g = _p = 0;
 	}
 	uint16_t size(){
@@ -125,7 +243,7 @@ struct File{
 	}
 	__attribute__((regparm(1)))
 	bool read(char *data, uint16_t size){
-		if(!FindEntry(filename, &e))return false;
+		if(FindEntry(filename, &e) == 0xFFFF)return false;
 		// _g
 		uint16_t s = _g / 512; // 第几块
 		uint16_t o = _g % 512; // 块中偏移字节
@@ -135,12 +253,14 @@ struct File{
 			u = GetNextFat(u);
 			if (u >= 0xFF8)return false;
 		}
+		char buf[512];
 		ReadFloppy((33 + (u - 2)),1,buf);
 		// 开始写入到data
 		for (uint16_t i = 0;i < size;++i){
 			if (o >= 512){
 				//当前扇区已经读完
 				u = GetNextFat(u);
+				cout << "READ" << u << endl;
 				if (u >= 0xFF8)return false;
 				ReadFloppy((33 + (u - 2)),1,buf);
 				o = 0;
@@ -151,9 +271,10 @@ struct File{
 		_g += size;
 		return true;
 	}
-	__attribute__((regparm(1)))
+	__attribute__((regparm(2)))
 	bool write(char *data, uint16_t size){
-		if(!FindEntry(filename, &e)){
+		uint16_t eid;
+		if((eid = FindEntry(filename, &e)) == 0xFFFF){
 			//建立Entry
 			/*
 				struct Entry{
@@ -171,10 +292,51 @@ struct File{
 				dd DIR_FileSize;
 			*/
 			memcpy(e.DIR_Name, filename, 11);
+			e.DIR_Attr = 0x20; // 档案
+			uint16_t ec = FindEmptyClus();
+			if (ec == 0xFFFF)return false;
+			e.DIR_FstClus = ec;
+			SetClus(ec, 0x0FFF);
+			cout << "EC" << ec << endl;
+			e.DIR_FileSize = 0;
+			eid = FindEmptyEntry();
+			cout << "EID" << eid << endl;
 		}
 		// _p
 		uint16_t s = _p / 512; // 第几块
 		uint16_t o = _p % 512; // 块中偏移字节
+		//查找当前块是否足够, 若不足够则扩展
+		uint16_t cl = e.DIR_FstClus;
+		for (uint16_t q = 0;q < s;++q){
+			cl = GetNextClus(cl);
+			cout << "CL" << cl << endl;
+			if (cl == 0xFFFF)return false;
+			//cl绝对是可用的
+		}
+		//当前cl可用
+		//写入数据
+		char buf[512];
+		if (size < 512)ReadFloppy(33 + cl - 2,1,buf); //保留后面的数据
+		for (uint16_t i = 0;i < size;++i){
+			if (o >= 512){
+				WriteFloppy(33 + cl - 2,1,buf); 
+				cl = GetNextClus(cl);
+				cout << "CL" << cl << endl;
+				if (cl == 0xFFFF)return false;
+				if (size - i < 512){
+					ReadFloppy(33 + cl - 2,1,buf);
+				}
+				o = 0;
+			}
+			buf[o++] = data[i];
+		}
+		WriteFloppy(33 + cl - 2,1,buf); 
+		if (_p + size > e.DIR_FileSize)
+			e.DIR_FileSize = _p + size;
+		_p += size;
+		cout << "OK"<<endl;
+		SetEntry(eid, &e); //更新Entry
+		return true;
 	}
 };
 
