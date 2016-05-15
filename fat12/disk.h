@@ -66,7 +66,6 @@ void ReadFloppy(uint16_t sectorID, uint8_t sectorNum, char *data){
 
 __attribute__((regparm(3)))
 void WriteFloppy(uint16_t sectorID, uint8_t sectorNum, char *data){
-	cout << "WRITE" << sectorID << "NUM" << uint16_t(sectorNum) << endl;
 	//ofstream fout("disk.imgw", ios::binary|ios::app);
 	//fout.seekp(sectorID * 512, ios::beg);
 	//fout.write(data, sectorNum * 512);
@@ -94,9 +93,6 @@ uint16_t FindEntry(char *filename, Entry *e){
 		for (int j = 0;j < 512/32;++j){
 			memcpy(e,buf + j * 32,32);
 			bool can = true;
-			//cout << e->DIR_Name << endl;
-			//char c;
-			//cin >> c;
 			for (int k = 0;k < 11;++k){
 				if (filename[k] != e->DIR_Name[k]){
 					can = false;
@@ -199,7 +195,6 @@ void SetClus(uint16_t id, uint16_t value){
 		w = (w & 0x000F) | (value << 4);
 	}
 	*(uint16_t*)(buf + o) = w;
-	cout << "Value" << value << "ID "<< id << " W " << w << endl;
 	WriteFloppy(1 + 3 * q, 3, buf); //FAT1
 	WriteFloppy(10 + 3 * q, 3, buf); //FAT2
 }
@@ -210,9 +205,7 @@ uint16_t GetNextClus(uint16_t cl){
 	if (nf >= 0xFF8){
 		uint16_t ec = FindEmptyClus();
 		if (ec == 0xFFFF)return 0xFFFF;
-		cout << "=====" << endl;
 		SetClus(cl,ec);
-		cout << "!!!!!" << endl;
 		SetClus(ec,0x0FFF);
 		return ec;
 	}
@@ -260,7 +253,6 @@ struct File{
 			if (o >= 512){
 				//当前扇区已经读完
 				u = GetNextFat(u);
-				cout << "READ" << u << endl;
 				if (u >= 0xFF8)return false;
 				ReadFloppy((33 + (u - 2)),1,buf);
 				o = 0;
@@ -297,10 +289,8 @@ struct File{
 			if (ec == 0xFFFF)return false;
 			e.DIR_FstClus = ec;
 			SetClus(ec, 0x0FFF);
-			cout << "EC" << ec << endl;
 			e.DIR_FileSize = 0;
 			eid = FindEmptyEntry();
-			cout << "EID" << eid << endl;
 		}
 		// _p
 		uint16_t s = _p / 512; // 第几块
@@ -309,7 +299,6 @@ struct File{
 		uint16_t cl = e.DIR_FstClus;
 		for (uint16_t q = 0;q < s;++q){
 			cl = GetNextClus(cl);
-			cout << "CL" << cl << endl;
 			if (cl == 0xFFFF)return false;
 			//cl绝对是可用的
 		}
@@ -321,7 +310,6 @@ struct File{
 			if (o >= 512){
 				WriteFloppy(33 + cl - 2,1,buf); 
 				cl = GetNextClus(cl);
-				cout << "CL" << cl << endl;
 				if (cl == 0xFFFF)return false;
 				if (size - i < 512){
 					ReadFloppy(33 + cl - 2,1,buf);
@@ -334,7 +322,6 @@ struct File{
 		if (_p + size > e.DIR_FileSize)
 			e.DIR_FileSize = _p + size;
 		_p += size;
-		cout << "OK"<<endl;
 		SetEntry(eid, &e); //更新Entry
 		return true;
 	}
