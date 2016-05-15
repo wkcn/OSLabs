@@ -12,7 +12,6 @@
 #include "screen.h"
 
 const uint8_t UserNum = 4;
-char ScreenSaver[UserNum][80 * 25 * 2];
 uint16_t cursors[UserNum];
 
 const uint16_t talkBufSize = 128;
@@ -38,8 +37,8 @@ void TabUser(uint8_t uid){
 	if (!(uid >= 1 && uid <= 4))return;
 	//uid = 1, 2, 3, 4, 5
 	//切换用户
-	SaveScreen(ScreenSaver[UserID - 1]);
-	LoadScreen(ScreenSaver[uid - 1]);
+	SaveScreen(UserID);
+	LoadScreen(uid);
 	//Save Cursor
 	cursors[UserID - 1] = GetCursor();
 	//Load Cursor

@@ -11,7 +11,8 @@ BITS 16
 ;4M = 0x4 0 0000
 MaxRunNum equ 128
 MSG_SEGMENT equ 4000h
-PCB_SEGMENT equ MSG_SEGMENT + 100h 
+SCREEN_SEGMENT equ MSG_SEGMENT + 100h
+PCB_SEGMENT equ SCREEN_SEGMENT + (80 * 25 * 2 / 16) * 4 
 PROG_SEGMENT equ PCB_SEGMENT + (MaxRunNum * PCBSize / 16)
 UserProgramOffset equ 100h
 UpdateTimes equ 20
@@ -119,7 +120,7 @@ WKCNINT20H:
 ;注意, 如果这个放在代码段, 会导致被当成代码运行:-(
 INT21HJMPLIST:
 	dw TabShellMode, TabProgState, GetRunID, RETN_PCB_S, RETN_PROG_S, RETN_MSG_S, RETN_MAXRUNNUM
-	dw STOP_CLOCK, START_CLOCK, INC_RUNNUM, RETN_RUNNUM
+	dw STOP_CLOCK, START_CLOCK, INC_RUNNUM, RETN_RUNNUM, RETN_SCREEN_S
 
 WKCNINT21H:
 	;21H中断
@@ -134,6 +135,7 @@ WKCNINT21H:
 	;AH = 08h, 开启时钟
 	;AH = 09h, ++RunNum
 	;AH = 0Ah, 返回RunNum
+	;AH = 0Bh, 返回SCREEN_SEGMENT
 	push dx
 	push cx
 	push bx
@@ -181,6 +183,10 @@ WKCNINT21H:
 
 	RETN_MSG_S:
 	mov ax, MSG_SEGMENT
+	jmp INT21HEND
+
+	RETN_SCREEN_S:
+	mov ax, SCREEN_SEGMENT
 	jmp INT21HEND
 
 	RETN_MAXRUNNUM:

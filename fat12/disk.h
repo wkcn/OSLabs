@@ -217,6 +217,12 @@ struct File{
 	Entry e;
 	uint16_t _g,_p;
 	bool eofed;
+	uint16_t tellg(){
+		return _g;
+	}
+	uint16_t tellp(){
+		return _p;
+	}
 	__attribute__((regparm(1)))
 	void open(const char *filename){
 		memcpy(this->filename, filename, 11);
