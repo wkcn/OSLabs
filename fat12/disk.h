@@ -311,7 +311,7 @@ struct File{
 		//当前cl可用
 		//写入数据
 		char buf[512];
-		if (size < 512)ReadFloppy(33 + cl - 2,1,buf); //保留后面的数据
+		if (size < 512 || o > 0)ReadFloppy(33 + cl - 2,1,buf); //保留前面或后面的数据
 		for (uint16_t i = 0;i < size;++i){
 			if (o >= 512){
 				WriteFloppy(33 + cl - 2,1,buf); 

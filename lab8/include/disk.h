@@ -131,6 +131,7 @@ uint16_t FindEmptyEntry(){
 	for (int i = 19;i < 19 + 14;++i){
 		ReadFloppy(i,1,buf);
 		for (int j = 0;j < 512/32;++j){
+			PrintStrN(buf + j *32,11,LBLUE);
 			if (buf[j * 32] == 0){
 				return id;
 			}
@@ -142,6 +143,7 @@ uint16_t FindEmptyEntry(){
 
 __attribute__((regparm(2)))
 void SetEntry(uint16_t id, Entry *e){
+	PrintStrN(e->DIR_Name,11,LGREEN);
 	uint16_t q = id / (512 / 32) + 19;
 	uint16_t t = id % (512 / 32);
 	char buf[512];
@@ -170,12 +172,16 @@ uint16_t GetNextFat(uint16_t u){
 
 uint16_t FindEmptyClus(){
 	char buf[512 * 3];
-	uint16_t id = 0;
 	for (uint16_t q = 0;q < 9 / 3;++q){
 		ReadFloppy(1 + 3 * q, 3, buf);
-		uint16_t o = 0; 
-		bool y = 1;
-		for (uint16_t u = 0;u < 512 * 2;++u){
+		for (int i = 0;i < 128;++i){
+			PrintHex(buf[i],CARM);
+			PrintChar(' ');
+		}
+		uint16_t o = 6;//start * 1.5; 
+		uint8_t y = 1;
+		//跳过FAT的项0, 项1.
+		for (uint16_t u = 4;u < 512 * 2;++u){
 			uint16_t w = *(uint16_t*)(buf + o);
 			if (u % 2 == 0){
 				w &= 0xFFF;
@@ -183,11 +189,11 @@ uint16_t FindEmptyClus(){
 				w = (w >> 4) & 0xFFF;
 			}
 			if (w == 0){
-				return id;
+				return u;
 			}
 			o += ((y)?1:2);
-			y = !y;
-			++id;
+			if (y == 0)y = 1;
+			else y = 0;
 		}
 	}
 	return 0xFFFF;
@@ -229,107 +235,124 @@ struct File{
 	char filename[11];
 	Entry e;
 	uint16_t _g,_p;
-	bool eofed;
-	uint16_t tellg(){
-		return _g;
+};
+__attribute__((regparm(1)))
+uint16_t tellg(File *f){
+	return f->_g;
+}
+__attribute__((regparm(1)))
+uint16_t tellp(File *f){
+	return f->_p;
+}
+__attribute__((regparm(2)))
+void open(File *f, char *filename){
+	PrintStrN(filename,11,RED);
+	memcpy(f->filename, filename, 11);
+	FindEntry(f->filename, &f->e);
+	f->_g = f->_p = 0;
+}
+__attribute__((regparm(1)))
+uint16_t size(File *f){
+	return f->e.DIR_FileSize;
+}
+__attribute__((regparm(2)))
+void seekg(File *f,uint16_t g){
+	f->_g = g;
+}
+__attribute__((regparm(2)))
+void seekp(File *f,uint16_t p){
+	f->_p = p;
+}
+__attribute__((regparm(3)))
+bool read(File *f, char *data, uint16_t size){
+	if(FindEntry(f->filename, &f->e) == 0xFFFF)return false;
+	// _g
+	uint16_t s = f->_g / 512; // 第几块
+	uint16_t o = f->_g % 512; // 块中偏移字节
+	//跳转到第s块
+	uint16_t u = f->e.DIR_FstClus;
+	for (uint16_t sc = 0;sc < s;++sc){
+		u = GetNextFat(u);
+		if (u >= 0xFF8)return false;
 	}
-	uint16_t tellp(){
-		return _p;
-	}
-	__attribute__((regparm(1)))
-	void open(const char *filename){
-		memcpy(this->filename, filename, 11);
-		FindEntry(this->filename, &e);
-		_g = _p = 0;
-	}
-	uint16_t size(){
-		return e.DIR_FileSize;
-	}
-	__attribute__((regparm(1)))
-	void seekg(uint16_t g){
-		_g = g;
-	}
-	__attribute__((regparm(1)))
-	void seekp(uint16_t p){
-		_p = p;
-	}
-	__attribute__((regparm(1)))
-	bool read(char *data, uint16_t size){
-		if(FindEntry(filename, &e) == 0xFFFF)return false;
-		// _g
-		uint16_t s = _g / 512; // 第几块
-		uint16_t o = _g % 512; // 块中偏移字节
-		//跳转到第s块
-		uint16_t u = e.DIR_FstClus;
-		for (uint16_t sc = 0;sc < s;++sc){
+	char buf[512];
+	ReadFloppy((33 + (u - 2)),1,buf);
+	// 开始写入到data
+	for (uint16_t i = 0;i < size;++i){
+		if (o >= 512){
+			//当前扇区已经读完
 			u = GetNextFat(u);
 			if (u >= 0xFF8)return false;
+			ReadFloppy((33 + (u - 2)),1,buf);
+			o = 0;
 		}
-		char buf[512];
-		ReadFloppy((33 + (u - 2)),1,buf);
-		// 开始写入到data
-		for (uint16_t i = 0;i < size;++i){
-			if (o >= 512){
-				//当前扇区已经读完
-				u = GetNextFat(u);
-				if (u >= 0xFF8)return false;
-				ReadFloppy((33 + (u - 2)),1,buf);
-				o = 0;
-			}
-			data[i] = buf[o++];
-		}
-		//更新_g
-		_g += size;
-		return true;
+		data[i] = buf[o++];
 	}
-	__attribute__((regparm(2)))
-	bool write(char *data, uint16_t size){
-		uint16_t eid;
-		if((eid = FindEntry(filename, &e)) == 0xFFFF){
-			//建立Entry
-			memcpy(e.DIR_Name, filename, 11);
-			e.DIR_Attr = 0x20; // 档案
-			uint16_t ec = FindEmptyClus();
-			if (ec == 0xFFFF)return false;
-			e.DIR_FstClus = ec;
-			SetClus(ec, 0x0FFF);
-			e.DIR_FileSize = 0;
-			eid = FindEmptyEntry();
-		}
-		// _p
-		uint16_t s = _p / 512; // 第几块
-		uint16_t o = _p % 512; // 块中偏移字节
-		//查找当前块是否足够, 若不足够则扩展
-		uint16_t cl = e.DIR_FstClus;
-		for (uint16_t q = 0;q < s;++q){
+	//更新_g
+	f->_g += size;
+	return true;
+}
+__attribute__((regparm(3)))
+bool write(File *f, char *data, uint16_t size){
+	PrintStrN(f->filename,11);
+	uint16_t eid;
+	PrintStr("start");
+	if((eid = FindEntry(f->filename, &f->e)) == 0xFFFF){
+		//建立Entry
+		memcpy(f->e.DIR_Name, f->filename, 11);
+		f->e.DIR_Attr = 0x20; // 档案
+		uint16_t ec = FindEmptyClus();
+		PrintStr("OUT",RED);
+		PrintNum(ec,YELLOW);
+		if (ec == 0xFFFF)return false;
+		f->e.DIR_FstClus = ec;
+		SetClus(ec, 0x0FFF);
+		f->e.DIR_FileSize = 0;
+		eid = FindEmptyEntry();
+	}
+	// _p
+	uint16_t s = f->_p / 512; // 第几块
+	uint16_t o = f->_p % 512; // 块中偏移字节
+	//查找当前块是否足够, 若不足够则扩展
+	uint16_t cl = f->e.DIR_FstClus;
+	PrintNum(cl, LRED);
+	for (uint16_t q = 0;q < s;++q){
+		cl = GetNextClus(cl);
+		if (cl == 0xFFFF)return false;
+		//cl绝对是可用的
+	}
+	//当前cl可用
+	//写入数据
+	char buf[512];
+	PrintStr("www");
+	if (size < 512 || o > 0)ReadFloppy(33 + cl - 2,1,buf); //保留前面或后面的数据
+	for (int i = 0;i < 512;++i){
+		PrintChar(buf[i],YELLOW);
+	}
+	for (uint16_t i = 0;i < size;++i){
+		if (o >= 512){
+			WriteFloppy(33 + cl - 2,1,buf); 
 			cl = GetNextClus(cl);
+			PrintNum(cl, LRED);
 			if (cl == 0xFFFF)return false;
-			//cl绝对是可用的
-		}
-		//当前cl可用
-		//写入数据
-		char buf[512];
-		if (size < 512)ReadFloppy(33 + cl - 2,1,buf); //保留后面的数据
-		for (uint16_t i = 0;i < size;++i){
-			if (o >= 512){
-				WriteFloppy(33 + cl - 2,1,buf); 
-				cl = GetNextClus(cl);
-				if (cl == 0xFFFF)return false;
-				if (size - i < 512){
-					ReadFloppy(33 + cl - 2,1,buf);
-				}
-				o = 0;
+			if (size - i < 512){
+				ReadFloppy(33 + cl - 2,1,buf);
 			}
-			buf[o++] = data[i];
+			o = 0;
 		}
-		WriteFloppy(33 + cl - 2,1,buf); 
-		if (_p + size > e.DIR_FileSize)
-			e.DIR_FileSize = _p + size;
-		_p += size;
-		SetEntry(eid, &e); //更新Entry
-		return true;
+		buf[o++] = data[i];
 	}
-};
+	PrintStr("IDOWN");
+	WriteFloppy(33 + cl - 2,1,buf); 
+	if (f->_p + size > f->e.DIR_FileSize)
+		f->e.DIR_FileSize = f->_p + size;
+	f->_p += size;
+	PrintStr("w");
+	SetEntry(eid, &f->e); //更新Entry
+	PrintStr("KO");
+	return true;
+}
+
 __attribute__((regparm(3)))
 uint16_t LoadFile(char *filename, uint16_t offset, uint16_t seg){
 	char lfbuf[1024];

@@ -33,9 +33,9 @@ write_image: loadknl.bin
 	dd if=$(BUILD_DIR)/loadknl.bin of=$(IMAGE_NAME) conv=notrunc
 
 write_knl: kernel.bin
-	mount -o loop $(IMAGE_NAME) disk/
-	cp $(BUILD_DIR)/kernel.bin $(DISK_DIR)/
-	umount $(DISK_DIR)/
+	sudo mount -o loop $(IMAGE_NAME) disk/
+	sudo cp $(BUILD_DIR)/kernel.bin $(DISK_DIR)/
+	sudo umount $(DISK_DIR)/
 
 build_progs: shell.com\
 			wkcn1.com wkcn2.com wkcn3.com wkcn4.com kan.com\
@@ -45,13 +45,13 @@ build_progs: shell.com\
 			fork1.com fork2.com alpha.com\
 			mat.com letter.com fruit.com
 
-	mount -o loop $(IMAGE_NAME) disk/
+	sudo mount -o loop $(IMAGE_NAME) disk/
 
 	for name in $^; do\
-		cp $(BUILD_DIR)/$$name $(DISK_DIR)/;\
+		sudo cp $(BUILD_DIR)/$$name $(DISK_DIR)/;\
 	done
 
-	umount $(DISK_DIR)/
+	sudo umount $(DISK_DIR)/
 
 loadknl.bin: $(SOURCE_DIR)/loadknl.asm
 	$(AS) $(ASFLAGS) -f bin $^ -o $(BUILD_DIR)/$@

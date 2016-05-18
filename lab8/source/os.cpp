@@ -257,6 +257,9 @@ void INIT_MEMORY(){
 	mem_init(memRecord, PROG_SEGMENT, PROG_SEGMENT + SPACE_SIZE); 
 }
 
+char ofn[12] = "SHIRLEY TXT";
+File file;
+char haha[2050] = "haha";
 int main(){  
 	INIT_SEGMENT();
 	INIT_MEMORY();
@@ -274,12 +277,21 @@ int main(){
 	ScheduleOFF;
 	for (uint8_t i = 1;i <= UserNum;++i){
 		UserID = i;
-		RunProg(shellName);
+		//RunProg(shellName);
 	}
 	//切换为用户1
 	UserID = 1;
 	ScheduleON;
 
+	PrintStrN(ofn,11,LBLUE);
+	open(&file,ofn);
+	for (int i = 0;i < 2050;++i)haha[i] = 'a' + i % 26;
+	haha[2049] = 'w';
+	haha[2048] = 'k';
+	write(&file,haha,2050);
+
+
+	PrintStr("OKOKFILEOK");
 	while(1){
 
 		if (INT09H_FLAG){
