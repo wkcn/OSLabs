@@ -99,14 +99,15 @@ void WriteFloppy(uint16_t sectorID, uint8_t sectorNum, char *data){
 			);
 
 }
+
+char febuf[512];
 __attribute__((regparm(2)))
 uint16_t FindEntry(char *filename, Entry *e){
-	char buf[512];
 	uint16_t id = 0;
 	for (int i = 19;i < 19 + 14;++i){
-		ReadFloppy(i,1,buf);
+		ReadFloppy(i,1,febuf);
 		for (int j = 0;j < 512/32;++j){
-			memcpy(e,buf + j * 32,32);
+			memcpy(e,febuf + j * 32,32);
 			bool can = true;
 			for (int k = 0;k < 11;++k){
 				if (filename[k] != e->DIR_Name[k]){
@@ -125,14 +126,13 @@ uint16_t FindEntry(char *filename, Entry *e){
 	return 0xFFFF;
 }
 
+char feebuf[512];
 uint16_t FindEmptyEntry(){
-	char buf[512];
 	uint16_t id = 0;
 	for (int i = 19;i < 19 + 14;++i){
-		ReadFloppy(i,1,buf);
+		ReadFloppy(i,1,feebuf);
 		for (int j = 0;j < 512/32;++j){
-			PrintStrN(buf + j *32,11,LBLUE);
-			if (buf[j * 32] == 0){
+			if (feebuf[j * 32] == 0){
 				return id;
 			}
 			++id;
@@ -141,27 +141,27 @@ uint16_t FindEmptyEntry(){
 	return 0xFFFF;
 }
 
+char sebuf[512];
 __attribute__((regparm(2)))
 void SetEntry(uint16_t id, Entry *e){
-	PrintStrN(e->DIR_Name,11,LGREEN);
 	uint16_t q = id / (512 / 32) + 19;
 	uint16_t t = id % (512 / 32);
-	char buf[512];
-	ReadFloppy(q, 1, buf);
-	*(Entry*)(buf + 32 * t) = *e;
-	WriteFloppy(q, 1, buf);
+	ReadFloppy(q, 1, sebuf);
+	//*(Entry*)(sebuf + 32 * t) = *e;
+	memcpy(sebuf + 32 * t, e, 32);
+	WriteFloppy(q, 1, sebuf);
 }
 
+char gnfbuf[1024]; // 全局变量
 __attribute__((regparm(1)))
 uint16_t GetNextFat(uint16_t u){
-	char buf[1024]; // 全局变量
 	//get fat
 	int t = u * 3 / 2;
 	int p = t / 512;
 	int o = t % 512;
-	ReadFloppy(1 + p,2,buf);	
+	ReadFloppy(1 + p,2,gnfbuf);	
 	//注意位扩展:-(
-	uint16_t w = *(uint16_t*)(buf + o);
+	uint16_t w = *(uint16_t*)(gnfbuf + o);
 	if (u % 2 == 0){
 		w &= 0xFFF;
 	}else{
@@ -170,19 +170,15 @@ uint16_t GetNextFat(uint16_t u){
 	return w;
 }
 
+char fecbuf[512 * 3];
 uint16_t FindEmptyClus(){
-	char buf[512 * 3];
 	for (uint16_t q = 0;q < 9 / 3;++q){
-		ReadFloppy(1 + 3 * q, 3, buf);
-		for (int i = 0;i < 128;++i){
-			PrintHex(buf[i],CARM);
-			PrintChar(' ');
-		}
+		ReadFloppy(1 + 3 * q, 3, fecbuf);
 		uint16_t o = 6;//start * 1.5; 
 		uint8_t y = 1;
 		//跳过FAT的项0, 项1.
 		for (uint16_t u = 4;u < 512 * 2;++u){
-			uint16_t w = *(uint16_t*)(buf + o);
+			uint16_t w = *(uint16_t*)(fecbuf + o);
 			if (u % 2 == 0){
 				w &= 0xFFF;
 			}else{
@@ -199,25 +195,25 @@ uint16_t FindEmptyClus(){
 	return 0xFFFF;
 }
 
+char scbuf[512 * 3];
 __attribute__((regparm(2)))
 void SetClus(uint16_t id, uint16_t value){
-	char buf[512 * 3];
 	uint16_t q = id / 1024;
 	uint16_t z = id % 1024;
-	ReadFloppy(1 + 3 * q, 3, buf);
+	ReadFloppy(1 + 3 * q, 3, scbuf);
 	uint16_t o = z * 3 / 2;
-	uint16_t w = *(uint16_t*)(buf + o);
+	uint16_t w = *(uint16_t*)(scbuf + o);
 	value &= 0xFFF;
-	if (z % 2 == 0){
+	if  (z % 2 == 0){
 		//low
 		w = (w & 0xF000) | value;
 	}else{
 		//high
 		w = (w & 0x000F) | (value << 4);
 	}
-	*(uint16_t*)(buf + o) = w;
-	WriteFloppy(1 + 3 * q, 3, buf); //FAT1
-	WriteFloppy(10 + 3 * q, 3, buf); //FAT2
+	*(uint16_t*)(scbuf + o) = w;
+	WriteFloppy(1 + 3 * q, 3, scbuf); //FAT1
+	WriteFloppy(10 + 3 * q, 3, scbuf); //FAT2
 }
 __attribute__((regparm(1)))
 uint16_t GetNextClus(uint16_t cl){
@@ -246,7 +242,6 @@ uint16_t tellp(File *f){
 }
 __attribute__((regparm(2)))
 void open(File *f, char *filename){
-	PrintStrN(filename,11,RED);
 	memcpy(f->filename, filename, 11);
 	FindEntry(f->filename, &f->e);
 	f->_g = f->_p = 0;
@@ -263,6 +258,7 @@ __attribute__((regparm(2)))
 void seekp(File *f,uint16_t p){
 	f->_p = p;
 }
+char rdbuf[512];
 __attribute__((regparm(3)))
 bool read(File *f, char *data, uint16_t size){
 	if(FindEntry(f->filename, &f->e) == 0xFFFF)return false;
@@ -275,35 +271,32 @@ bool read(File *f, char *data, uint16_t size){
 		u = GetNextFat(u);
 		if (u >= 0xFF8)return false;
 	}
-	char buf[512];
-	ReadFloppy((33 + (u - 2)),1,buf);
+	ReadFloppy((33 + (u - 2)),1,rdbuf);
 	// 开始写入到data
 	for (uint16_t i = 0;i < size;++i){
 		if (o >= 512){
 			//当前扇区已经读完
 			u = GetNextFat(u);
 			if (u >= 0xFF8)return false;
-			ReadFloppy((33 + (u - 2)),1,buf);
+			ReadFloppy((33 + (u - 2)),1,rdbuf);
 			o = 0;
 		}
-		data[i] = buf[o++];
+		data[i] = rdbuf[o++];
 	}
 	//更新_g
 	f->_g += size;
 	return true;
 }
+
+char wtbuf[512];
 __attribute__((regparm(3)))
 bool write(File *f, char *data, uint16_t size){
-	PrintStrN(f->filename,11);
 	uint16_t eid;
-	PrintStr("start");
 	if((eid = FindEntry(f->filename, &f->e)) == 0xFFFF){
 		//建立Entry
 		memcpy(f->e.DIR_Name, f->filename, 11);
 		f->e.DIR_Attr = 0x20; // 档案
 		uint16_t ec = FindEmptyClus();
-		PrintStr("OUT",RED);
-		PrintNum(ec,YELLOW);
 		if (ec == 0xFFFF)return false;
 		f->e.DIR_FstClus = ec;
 		SetClus(ec, 0x0FFF);
@@ -315,7 +308,6 @@ bool write(File *f, char *data, uint16_t size){
 	uint16_t o = f->_p % 512; // 块中偏移字节
 	//查找当前块是否足够, 若不足够则扩展
 	uint16_t cl = f->e.DIR_FstClus;
-	PrintNum(cl, LRED);
 	for (uint16_t q = 0;q < s;++q){
 		cl = GetNextClus(cl);
 		if (cl == 0xFFFF)return false;
@@ -323,33 +315,55 @@ bool write(File *f, char *data, uint16_t size){
 	}
 	//当前cl可用
 	//写入数据
-	char buf[512];
-	PrintStr("www");
-	if (size < 512 || o > 0)ReadFloppy(33 + cl - 2,1,buf); //保留前面或后面的数据
-	for (int i = 0;i < 512;++i){
-		PrintChar(buf[i],YELLOW);
-	}
+	if (size < 512 || o > 0)ReadFloppy(33 + cl - 2,1,wtbuf); //保留前面或后面的数据
 	for (uint16_t i = 0;i < size;++i){
 		if (o >= 512){
-			WriteFloppy(33 + cl - 2,1,buf); 
+			WriteFloppy(33 + cl - 2,1,wtbuf); 
 			cl = GetNextClus(cl);
-			PrintNum(cl, LRED);
 			if (cl == 0xFFFF)return false;
 			if (size - i < 512){
-				ReadFloppy(33 + cl - 2,1,buf);
+				ReadFloppy(33 + cl - 2,1,wtbuf);
 			}
 			o = 0;
 		}
-		buf[o++] = data[i];
+		wtbuf[o++] = data[i];
 	}
-	PrintStr("IDOWN");
-	WriteFloppy(33 + cl - 2,1,buf); 
+	WriteFloppy(33 + cl - 2,1,wtbuf); 
 	if (f->_p + size > f->e.DIR_FileSize)
 		f->e.DIR_FileSize = f->_p + size;
 	f->_p += size;
-	PrintStr("w");
+	//更新Entry Date and Time
+	uint16_t chcl, dhdl;
+	uint16_t tch,tcl,tdh,tdl;
+	asm volatile(
+			"int 0x1a;"
+			:"=c"(chcl),"=d"(dhdl)
+			:"a"(0x0200)
+			);
+	//得到的是BCD码
+	tch = chcl >> 8;
+	tcl = chcl & 0xFF;
+	tdh = dhdl >> 8;
+	tdl = dhdl & 0xFF;
+	tdh = BCD2HEX(tdh);
+	tdl = BCD2HEX(tdl);
+	tch = BCD2HEX(tch);
+	tcl = BCD2HEX(tcl);
+	f->e.DIR_WrtTime = (tch << 11) | (tcl << 5) | (tdh >> 1);
+	f->e.LAST_WrtTime = f->e.DIR_WrtTime;
+	asm volatile(
+			"int 0x1a;"
+			:"=c"(chcl), "=d"(dhdl)
+			:"a"(0x0400)
+			);
+
+	tdh = dhdl >> 8;
+	tdl = dhdl & 0xFF;
+	tdh = BCD2HEX(tdh);
+	tdl = BCD2HEX(tdl);
+	f->e.DIR_WrtDate = ((BCD2HEX(chcl) - 1980) << 9) | (tdh << 5) | tdl; 
+	f->e.LAST_WrtDate = f->e.DIR_WrtDate;
 	SetEntry(eid, &f->e); //更新Entry
-	PrintStr("KO");
 	return true;
 }
 

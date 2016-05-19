@@ -6,6 +6,7 @@
 #include "pcb.h"
 #include "interrupt.h"
 #include "os_sem.h"
+#include "os_msg.h"
 #include "port.h"
 #include "mem_base.h"
 #include "prog.h"
@@ -208,31 +209,43 @@ void int_24h(){
 void int_25h(){
 	CPP_INT_HEADER;
 	asm volatile("sti;");
-	uint16_t ax;
-	asm volatile("":"=a"(ax));
+	uint16_t ax, bx, cx, dx;
+	asm volatile("":"=a"(ax),"=b"(bx),"=c"(cx),"=d"(dx));
 	uint8_t ah = (ax & 0xFF00) >> 8;
 	int8_t al = (ax & 0x00FF);
 	/*
 	 * ah = 00h, 创建信号量，初始值为al
 	 * ah = 01h, semWait
 	 * ah = 02h, semSig
+	 * ah = 30h, 阻塞发送 target, cs, ip 
+	 * ah = 43h, 非阻塞全接收 cs, ip
 	 * 以上sid为al
 	 */
-	if (ah == 0x00){
-		uint8_t sid = os_semCreate(al);
-		asm volatile("mov ax, bx;"::"b"((uint16_t)sid));
-	}else if (ah == 0x01){
-		os_semWait(al);
-		//PrintStr("wait");
-		//PrintNum(al);
-	}else if (ah == 0x02){
-		//PrintStr("sig");
-		//PrintNum(al);
-		os_semSignal(al);
-	}else if (ah == 0x04){
-		os_semDel(al);
-	}else if (ah == 0x05){
-		os_semRelease(al); // 根据RunID删除
+	uint8_t sid;
+	switch(ah){
+		case 0x00:
+			sid = os_semCreate(al);
+			asm volatile("mov ax, bx;"::"b"((uint16_t)sid));
+			break;
+		case 0x01:
+			os_semWait(al);
+			break;
+		case 0x02:
+			os_semSignal(al);
+			break;
+		case 0x04:
+			os_semDel(al);
+			break;
+		case 0x05:
+			os_semRelease(al); // 根据RunID删除
+			break;
+		case 0x30:
+			PrintStr("SEND");
+			ax = Send(ah,bx,cx);
+			break;
+		case 0x43:
+			ax = IRecvAll(bx,cx);
+			break;
 	}
 	CPP_INT_LEAVE;
 }
@@ -257,13 +270,13 @@ void INIT_MEMORY(){
 	mem_init(memRecord, PROG_SEGMENT, PROG_SEGMENT + SPACE_SIZE); 
 }
 
-char ofn[12] = "SHIRLEY TXT";
-File file;
-char haha[2050] = "haha";
+MsgPack mp;
+char hh[128];
 int main(){  
 	INIT_SEGMENT();
 	INIT_MEMORY();
 	INIT_SEM();
+	INIT_MSG();
 	WriteUserINT();
 	// 初始化端口
 	SetPort(READYPROG_PORT,&readyProg,sizeof(ReadyProg));
@@ -277,19 +290,11 @@ int main(){
 	ScheduleOFF;
 	for (uint8_t i = 1;i <= UserNum;++i){
 		UserID = i;
-		//RunProg(shellName);
+		RunProg(shellName);
 	}
 	//切换为用户1
 	UserID = 1;
 	ScheduleON;
-
-	PrintStrN(ofn,11,LBLUE);
-	open(&file,ofn);
-	for (int i = 0;i < 2050;++i)haha[i] = 'a' + i % 26;
-	haha[2049] = 'w';
-	haha[2048] = 'k';
-	write(&file,haha,2050);
-
 
 	PrintStr("OKOKFILEOK");
 	while(1){
@@ -310,6 +315,12 @@ int main(){
 			RunProgRetn = RunProg(readyProg.filename, readyProg.allocatedSize);
 			PortSemSignal(RUNPROGRETN_PORT);
 			SetPortMsgV(READYPROG_PORT, 0);
+		}
+
+		bool can = IRecvAll(&mp);
+		if (can){
+			memcpy(GetAddr(hh), mp.data, mp.size);
+			PrintStr(hh, LBLUE);
 		}
 
 	}

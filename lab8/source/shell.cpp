@@ -185,17 +185,28 @@ void PrintUID(){
 	PrintStr(NEWLINE);
 }
 
-void top(){
-	UpdateRunNum();
+__attribute__((regparm(1)))
+void top(bool all = false){
+	uint16_t rn = 0;
+	for (uint8_t t = 0;t < MaxRunNum;++t){
+		if (GetTaskState(t) == T_EMPTY)continue;
+		if (!all){
+			uint8_t uid;
+			GetTaskAttr(t, &_p.UID, uid);
+			if (uid != UserID)continue;
+		}
+		++rn;
+	}
+	
 	PrintStr(" There are ");
-	PrintNum(RunNum,WHITE);
+	PrintNum(rn,WHITE);
 	PrintStr(" Progresses :-)",WHITE);
 	PrintStr(NEWLINE,WHITE);
 	PrintStr(" PID Name         PR  Size    SEG     CS      IP      Parent  State\r\n", LBLUE);
 	for (uint16_t t = 0;t < MaxRunNum;++t){
 		LoadPCB(t);
 		if (_p.STATE == T_EMPTY)continue;
-		if (_p.UID != UserID)continue;
+		if (_p.UID != UserID && !all)continue;
 		uint16_t count = 0;
 		PrintChar(' ');
 		count = PrintNum(_p.ID);
@@ -293,7 +304,9 @@ void Execute(){
 	if (CommandMatch("uname")){
 		uname();
 	}else if (CommandMatch("top")){
-		top();
+		top(false);
+	}else if (CommandMatch("topa")){
+		top(true);
 	}else if (CommandMatch("uid")){
 		PrintUID();
 	}else if (CommandMatch("cls")){

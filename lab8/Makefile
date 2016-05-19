@@ -43,7 +43,7 @@ build_progs: shell.com\
 			box.com\
 		   	testport.com testnew.com\
 			fork1.com fork2.com alpha.com\
-			mat.com letter.com fruit.com
+			mat.com letter.com fruit.com screen.com
 
 	sudo mount -o loop $(IMAGE_NAME) disk/
 

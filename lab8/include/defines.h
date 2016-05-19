@@ -74,11 +74,61 @@ enum Color{
 	LWHITE
 };
 
+struct Addr{
+	uint16_t segment;
+	uint16_t offset;
+};
+
 __attribute__((regparm(3)))
 void memcpy(void *dest,const void *src,uint16_t size){
 	for (uint16_t i = 0;i < size;++i){
 		*(((char*)dest)+i) = *(((char*)src)+i);
 	}
+}
+
+__attribute__((regparm(3)))
+void memcpy(Addr dest,const Addr src,uint16_t size){
+	asm volatile(
+			"push ds;push si;push es;push di;"
+			);
+	asm volatile(
+			"mov si, bx;mov es, cx;mov di,dx;"
+			:
+			:"b"(src.offset),"c"(dest.segment),"d"(dest.offset)
+			);
+	asm volatile(
+			"mov ds, ax;"
+			"MEMCPYAA:movsb;loop MEMCPYAA;"
+			:
+			:"a"(src.segment),"c"(size)
+			);
+	asm volatile(
+			"pop di;pop es;pop si;pop ds;"
+			);
+}
+
+__attribute__((regparm(1)))
+Addr GetAddr(void *d){
+	Addr a;
+	asm volatile("mov ax, cs;":"=a"(a.segment));
+	a.offset = (unsigned long)d;
+	return a;
+}
+
+__attribute__((regparm(2)))
+Addr MakeAddr(uint16_t cs, uint16_t ip){
+	Addr a;
+	a.segment = cs;
+	a.offset = ip;
+	return a;
+}
+
+__attribute__((regparm(1)))
+uint16_t BCD2HEX(uint16_t bcd){
+	return ((bcd >> 12) & 0xF) * 1000 + \
+					 ((bcd >> 8) & 0xF) * 100 + \
+					 ((bcd >> 4) & 0xF) * 10 + \
+					 ((bcd) & 0xF);
 }
 
 uint16_t clock(){
