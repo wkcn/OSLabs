@@ -1,4 +1,5 @@
 #include "io.h"
+#include "disk.h"
 #include "string.h"
 #include "keyboard.h"
 #include "version.h"
@@ -8,7 +9,7 @@
 #include "prog.h"
 
 
-const char *OS_INFO = "MiraiOS 0.6";
+const char *OS_INFO = "MiraiOS 0.7";
 const char *PROMPT_INFO = "wkcn > ";
 const char *NOPROG_INFO = "No User Process is Running!";
 const char *BATCH_INFO = "Batching Next Program: ";
@@ -18,7 +19,7 @@ uint16_t ShellMode = 0;
 uint8_t UserID;
 uint16_t RunNum = 0;
 
-const uint16_t maxBufSize = 128;
+const uint16_t maxBufSize = 1024;
 char buf[maxBufSize]; // 指令流
 
 const uint16_t talkBufSize = 128;
@@ -31,6 +32,9 @@ int batchID = 0;
 int batchSize = 0;
 
 ReadyProg readyprog;
+
+//文件系统, 这里暂时由用户程序处理，没有使用微内核技术
+File file;
 
 void UpdateRunNum(){
 	RunNum = 0;
@@ -265,6 +269,7 @@ void top(bool all = false){
 
 
 char Exfilename[12];
+char rwfilename[12];
 void Execute(){  
 	if (bufSize <= 0)return;
 	batchSize = 0;
@@ -368,6 +373,66 @@ void Execute(){
 		PR();
 	}else if(CommandMatch("mem")){
 		MEM();
+	}else if(CommandMatch("open")){
+		uint16_t i = 0;
+		for (;i < 11;++i){
+			char c = buf[i + par[1][0]];
+			if (c == '.' || c == 0)break;
+			rwfilename[i] = c;
+		}
+		rwfilename[i++] = '.';
+		rwfilename[i++] = 't';
+		rwfilename[i++] = 'x';
+		rwfilename[i++] = 't';
+		rwfilename[i++] = 0; 
+
+		if (open(&file, rwfilename)){
+			PrintStr("Open File: ");
+			PrintStr(rwfilename);
+			PrintStr(" successfully!\r\n");
+		}else{
+			PrintStr(rwfilename, LGREEN);
+			PrintStr(" not found, create it when writting :-) \r\n",LGREEN);
+		}
+	}else if(CommandMatch("write")){
+		if (write(&file, buf + par[1][0], bufSize - par[1][0])){
+			PrintStr("Written :-)\r\n",LGREEN);
+		}else{
+			PrintStr("Written Failed :-(\r\n",RED);
+		}
+	}else if(CommandMatch("read")){
+		uint16_t readSize;
+		readSize = read(&file, buf, maxBufSize);
+		if (readSize){
+			for (uint16_t i = 0;i < readSize;++i){
+				PrintChar(buf[i]);
+			}
+			PrintStr(NEWLINE);
+		}else{
+			if (file.filename[0]){
+				PrintStr("You have read all words EOF! :-(\r\n",RED);
+			}else{
+				PrintStr("No opened file :-(\r\n",RED);
+			}
+		}
+	}else if(CommandMatch("file")){
+			if (file.filename[0]){
+				PrintStr("Filename: ");
+				PrintStrN(file.filename, 11);
+				PrintStr("   size: ", LBLUE);
+				PrintNum(size(&file), LBLUE);
+				PrintStr("   g: ", LGREEN);
+				PrintNum(tellg(&file), LGREEN);
+				PrintStr("   p: ", LCARM);
+				PrintNum(tellp(&file), LCARM);
+				PrintStr(NEWLINE);
+			}else{
+				PrintStr("No opened file:-(\r\n",RED);
+			}
+	}else if(CommandMatch("seekg")){
+		seekg(&file, GetNum(1));
+	}else if(CommandMatch("seekp")){
+		seekp(&file, GetNum(1));
 	}else if (IsNum(0)){
 		for (int k = 0;k < parSize && buf[k];++k){
 			char c = buf[k];
@@ -439,8 +504,17 @@ int main(){
 				cls();
 			}
 
-			UpdateRunNum();
-			if (RunNum <= 1)ShellMode = 0;
+
+			uint16_t runningNum = 0;
+			for (uint8_t t = 0;t < MaxRunNum;++t){
+				TASK_STATE state = (TASK_STATE)GetTaskState(t);
+				if (state != T_RUNNING && state != T_READY)continue;
+				uint8_t uid;
+				GetTaskAttr(t, &_p.UID, uid);
+				if (uid != UserID)continue;
+				++runningNum;
+			}
+			if (runningNum <= 1)ShellMode = 0;
 			continue;
 		}
 		//非Shell

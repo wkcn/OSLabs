@@ -6,7 +6,7 @@
 #include "pcb.h"
 #include "interrupt.h"
 #include "os_sem.h"
-#include "os_msg.h"
+//#include "os_msg.h"
 #include "port.h"
 #include "mem_base.h"
 #include "prog.h"
@@ -240,11 +240,10 @@ void int_25h(){
 			os_semRelease(al); // 根据RunID删除
 			break;
 		case 0x30:
-			PrintStr("SEND");
-			ax = Send(ah,bx,cx);
+			//ax = Send(ah,bx,cx);
 			break;
 		case 0x43:
-			ax = IRecvAll(bx,cx);
+			//ax = IRecvAll(bx,cx);
 			break;
 	}
 	CPP_INT_LEAVE;
@@ -270,13 +269,13 @@ void INIT_MEMORY(){
 	mem_init(memRecord, PROG_SEGMENT, PROG_SEGMENT + SPACE_SIZE); 
 }
 
-MsgPack mp;
-char hh[128];
+//MsgPack mp;
+//char hh[128];
 int main(){  
 	INIT_SEGMENT();
 	INIT_MEMORY();
 	INIT_SEM();
-	INIT_MSG();
+	//INIT_MSG();
 	WriteUserINT();
 	// 初始化端口
 	SetPort(READYPROG_PORT,&readyProg,sizeof(ReadyProg));
@@ -317,11 +316,13 @@ int main(){
 			SetPortMsgV(READYPROG_PORT, 0);
 		}
 
+		/*
 		bool can = IRecvAll(&mp);
 		if (can){
 			memcpy(GetAddr(hh), mp.data, mp.size);
 			PrintStr(hh, LBLUE);
 		}
+		*/
 
 	}
 	return 0;

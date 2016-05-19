@@ -2,7 +2,7 @@
 
 char buf[80 * 25];
 File f;
-char filename[12] = "SCREEN  TXT";
+char filename[12] = "SCREEN.TXT";
 int main(){
 	open(&f, filename);
 	asm volatile("push es;");

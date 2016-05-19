@@ -229,6 +229,7 @@ uint16_t GetNextClus(uint16_t cl){
 }
 struct File{
 	char filename[11];
+	char fat12name[11];
 	Entry e;
 	uint16_t _g,_p;
 };
@@ -241,10 +242,28 @@ uint16_t tellp(File *f){
 	return f->_p;
 }
 __attribute__((regparm(2)))
-void open(File *f, char *filename){
+bool open(File *f, char *filename){
 	memcpy(f->filename, filename, 11);
-	FindEntry(f->filename, &f->e);
+	//转为FAT12的文件名
+	for(uint16_t w = 0;w < 11;++w)f->fat12name[w] = ' ';
+	uint16_t i = 0;
+	uint16_t q = 0;
+	char c;
+	for (;i < 8 && filename[i] != '.';++i){
+		c = filename[i];
+		if (c >= 'a' && c <= 'z')c = c - 'a' + 'A';
+		f->fat12name[q++] = c;
+	}
+	q = 8;
+	if (filename[i] == '.'){
+		for (uint16_t w = 1;w <= 3;++w){
+			c = filename[i + w];
+			if (c >= 'a' && c <= 'z')c = c - 'a' + 'A';
+			f->fat12name[q++] = c;
+		}
+	}
 	f->_g = f->_p = 0;
+	return FindEntry(f->fat12name, &f->e) != 0xFFFF;
 }
 __attribute__((regparm(1)))
 uint16_t size(File *f){
@@ -260,8 +279,8 @@ void seekp(File *f,uint16_t p){
 }
 char rdbuf[512];
 __attribute__((regparm(3)))
-bool read(File *f, char *data, uint16_t size){
-	if(FindEntry(f->filename, &f->e) == 0xFFFF)return false;
+uint16_t read(File *f, char *data, uint16_t size){
+	if(FindEntry(f->fat12name, &f->e) == 0xFFFF)return false;
 	// _g
 	uint16_t s = f->_g / 512; // 第几块
 	uint16_t o = f->_g % 512; // 块中偏移字节
@@ -269,32 +288,42 @@ bool read(File *f, char *data, uint16_t size){
 	uint16_t u = f->e.DIR_FstClus;
 	for (uint16_t sc = 0;sc < s;++sc){
 		u = GetNextFat(u);
-		if (u >= 0xFF8)return false;
+		if (u >= 0xFF8)return 0;
 	}
 	ReadFloppy((33 + (u - 2)),1,rdbuf);
 	// 开始写入到data
+	u = GetNextFat(u);
+	uint16_t blockSize = 512;
+	uint16_t lastBlockSize = 512;
+	uint16_t b = f->e.DIR_FileSize % 512;
+	if (b > 0)lastBlockSize = b;
+	if (u >= 0xFF8)blockSize = lastBlockSize;
 	for (uint16_t i = 0;i < size;++i){
-		if (o >= 512){
+		if (o >= blockSize){
 			//当前扇区已经读完
-			u = GetNextFat(u);
-			if (u >= 0xFF8)return false;
+			if (u >= 0xFF8){
+				f->_g += i;
+				return i;
+			}
 			ReadFloppy((33 + (u - 2)),1,rdbuf);
 			o = 0;
+			u = GetNextFat(u);
+			if (u >= 0xFF8)blockSize = lastBlockSize;
 		}
 		data[i] = rdbuf[o++];
 	}
 	//更新_g
 	f->_g += size;
-	return true;
+	return size;
 }
 
 char wtbuf[512];
 __attribute__((regparm(3)))
 bool write(File *f, char *data, uint16_t size){
 	uint16_t eid;
-	if((eid = FindEntry(f->filename, &f->e)) == 0xFFFF){
+	if((eid = FindEntry(f->fat12name, &f->e)) == 0xFFFF){
 		//建立Entry
-		memcpy(f->e.DIR_Name, f->filename, 11);
+		memcpy(f->e.DIR_Name, f->fat12name, 11);
 		f->e.DIR_Attr = 0x20; // 档案
 		uint16_t ec = FindEmptyClus();
 		if (ec == 0xFFFF)return false;
