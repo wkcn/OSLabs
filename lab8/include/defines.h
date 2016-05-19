@@ -142,7 +142,7 @@ uint16_t clock(){
 	hour = (chcl >> 8) & 0xFF;
 	minute = (chcl) & 0xFF;
 	second = (dhdl >> 8) & 0xFF;
-	uint16_t res = hour * 3600 + minute * 60 + second;
+	uint16_t res = BCD2HEX(hour) * 3600 + BCD2HEX(minute) * 60 + BCD2HEX(second);
 	return res;
 }
 
