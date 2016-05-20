@@ -14,6 +14,7 @@ const char *PROMPT_INFO = "wkcn > ";
 const char *NOPROG_INFO = "No User Process is Running!";
 const char *BATCH_INFO = "Batching Next Program: ";
 const char *LS_INFO = "Please Input These Number to Run a Program or more :-)\n\r1,2,3,4 - 45 angle fly char\n\r5 Draw my name";
+const char TXT_NAME[5] = ".txt";
 
 uint16_t ShellMode = 0;
 uint8_t UserID;
@@ -270,6 +271,7 @@ void top(bool all = false){
 
 char Exfilename[12];
 char rwfilename[12];
+char tarfilename[12];
 void Execute(){  
 	if (bufSize <= 0)return;
 	batchSize = 0;
@@ -373,18 +375,57 @@ void Execute(){
 		PR();
 	}else if(CommandMatch("mem")){
 		MEM();
-	}else if(CommandMatch("open")){
+	}else if(CommandMatch("rm")){
 		uint16_t i = 0;
-		for (;i < 11;++i){
+		for (;i < 8;++i){
 			char c = buf[i + par[1][0]];
 			if (c == '.' || c == 0)break;
 			rwfilename[i] = c;
 		}
-		rwfilename[i++] = '.';
-		rwfilename[i++] = 't';
-		rwfilename[i++] = 'x';
-		rwfilename[i++] = 't';
-		rwfilename[i++] = 0; 
+		memcpy(rwfilename + i, TXT_NAME, sizeof(TXT_NAME));
+		if(!rm(rwfilename))PrintStr("File Not Found:-( \r\n",RED);
+	}else if(CommandMatch("mv")){
+		uint16_t i;
+		for (i = 0;i < 8;++i){
+			char c = buf[i + par[1][0]];
+			if (c == '.' || c == 0)break;
+			rwfilename[i] = c;
+		}
+		memcpy(rwfilename + i, TXT_NAME, sizeof(TXT_NAME));
+
+		for (i = 0;i < 8;++i){
+			char c = buf[i + par[2][0]];
+			if (c == '.' || c == 0)break;
+			tarfilename[i] = c;
+		}
+		memcpy(tarfilename + i, TXT_NAME, sizeof(TXT_NAME));
+
+		if(!mv(rwfilename, tarfilename))PrintStr("File Not Found:-(\r\n",RED);
+	}else if(CommandMatch("cp")){
+		uint16_t i;
+		for (i = 0;i < 8;++i){
+			char c = buf[i + par[1][0]];
+			if (c == '.' || c == 0)break;
+			rwfilename[i] = c;
+		}
+		memcpy(rwfilename + i, TXT_NAME, sizeof(TXT_NAME));
+
+		for (i = 0;i < 8;++i){
+			char c = buf[i + par[2][0]];
+			if (c == '.' || c == 0)break;
+			tarfilename[i] = c;
+		}
+		memcpy(tarfilename + i, TXT_NAME, sizeof(TXT_NAME));
+
+		if(!cp(rwfilename, tarfilename))PrintStr("Copy Fail:-(\r\n",RED);
+	}else if(CommandMatch("open")){
+		uint16_t i = 0;
+		for (;i < 8;++i){
+			char c = buf[i + par[1][0]];
+			if (c == '.' || c == 0)break;
+			rwfilename[i] = c;
+		}
+		memcpy(rwfilename + i, TXT_NAME, sizeof(TXT_NAME));
 
 		if (open(&file, rwfilename)){
 			PrintStr("Open File: ");

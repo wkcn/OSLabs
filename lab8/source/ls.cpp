@@ -78,7 +78,8 @@ int main(){
 			for (int k = 0;k < 32;++k){
 				*(((char*)&e) + k) = buf[k + j*32];
 			}
-			if (e.DIR_Name[10] == 0)continue;
+			//空文件，E5标记的跳过
+			if (e.DIR_Name[10] == 0 || uint8_t(e.DIR_Name[0]) == 0xE5)continue;
 			if (first){
 				first = false;
 				PrintStr("Filename     Size  Date        Time(UTC+8) Clusters",LBLUE);

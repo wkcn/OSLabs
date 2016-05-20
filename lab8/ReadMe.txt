@@ -1,11 +1,11 @@
-实验8（版本0.7, 编译版本号：1195）：
+实验8（版本0.7, 编译版本号：1213）：
 多用户与磁盘读写
 
 系统镜像为MiraiOS.img
 实验报告在report文件夹
 
 本次实验亮点：
-1. 实现了多用户机制
+1. 实现了多用户(终端)机制
 2. 实现了软盘的读写, open, write, read, seekp, seekg
 
 
@@ -27,6 +27,11 @@ read 从文件中读取数据
 seekp 改变写入指针， 如seekp 10
 seekg 改变读取指针, 如seekg 0
 file 查看文件状态
+文件操作指令
+[*新增指令*]
+rm 可恢复式删除
+mv 重命名文件 ex: mv source target
+cp 拷贝文件 ex: cp source target
 
 mem 查看内存管理链表信息
 pr 设置进程优先级, 用法:pr 1 5, 即设置PID为1的进程优先级为5
