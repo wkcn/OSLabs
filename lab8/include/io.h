@@ -66,11 +66,10 @@ void cls(){
 		);
 }  
 
-
-
+uint16_t GlobalColor;
 
 __attribute__((regparm(3)))
-void DrawChar(char ch,uint16_t r,uint16_t c,uint16_t color = 0x07){
+void DrawChar(char ch,uint16_t r,uint16_t c){
 	uint16_t k = (r * 80 + c) * 2;
 	asm volatile(
 				"push es;"
@@ -78,15 +77,15 @@ void DrawChar(char ch,uint16_t r,uint16_t c,uint16_t color = 0x07){
 				"mov es:[bx],cx;"
 				"pop es;"
 				:
-				:"a"(0xB800),"b"(k), "c"((color<<8) | ch)
+				:"a"(0xB800),"b"(k), "c"((GlobalColor<<8) | ch)
                 :
 			);
 }
 
 __attribute__((regparm(3)))
-void DrawText(const char *str,uint16_t r,uint16_t c,uint16_t color = 0x07){
+void DrawText(const char *str,uint16_t r,uint16_t c){
 	while(*str){
-		DrawChar(*(str++),r,c++,color);
+		DrawChar(*(str++),r,c++);
 	}
 }
 
@@ -105,7 +104,9 @@ void PrintChar(char ch, uint16_t color = 0x07){
 		uint16_t cp = GetCursor();
 		uint16_t row = cp >> 8;
 		uint16_t col = cp & 0x00FF;
-		DrawChar(ch,orow,ocol,color);
+		GlobalColor = color;
+		DrawChar(ch,orow,ocol);
+		GlobalColor = WHITE;
 		SetCursor(row,col);
 	}
 }

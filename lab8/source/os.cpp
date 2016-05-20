@@ -295,13 +295,14 @@ int main(){
 	UserID = 1;
 	ScheduleON;
 
-	PrintStr("OKOKFILEOK");
 	while(1){
 
 		if (INT09H_FLAG){
-			DrawText("Ouch! Ouch!",24,65,YELLOW);
+			GlobalColor = YELLOW;
+			DrawText("Ouch! Ouch!",24,65);
+			GlobalColor = WHITE;
 		}else{
-			DrawText("           ",24,65,YELLOW);
+			DrawText("           ",24,65);
 		}
 
 		if (GetPortMsgV(TALK_PORT)){
@@ -311,7 +312,8 @@ int main(){
 		}
 
 		if (GetPortMsgV(READYPROG_PORT)){
-			RunProgRetn = RunProg(readyProg.filename, readyProg.allocatedSize);
+			if (strcmp(readyProg.filename, "SHELL   COM") == 0)RunProgRetn = 0;
+			else RunProgRetn = RunProg(readyProg.filename, readyProg.allocatedSize);
 			PortSemSignal(RUNPROGRETN_PORT);
 			SetPortMsgV(READYPROG_PORT, 0);
 		}
@@ -327,3 +329,4 @@ int main(){
 	}
 	return 0;
 } 
+

@@ -1,5 +1,5 @@
 #include "io.h"
-#include "disk.h"
+#include "disk_op.h"
 #include "string.h"
 #include "keyboard.h"
 #include "version.h"
@@ -524,7 +524,9 @@ int main(){
 	UserID = GetRunID();
 	cls();
 	uname();
-	DrawText("You can input \'help\' to get more info",1,0,LGREEN);	
+	GlobalColor = LGREEN;
+	DrawText("You can input \'help\' to get more info",1,0);	
+	GlobalColor = WHITE;
 	SetCursor(2,0);
 	while(1){
 		uint16_t key = getkey();

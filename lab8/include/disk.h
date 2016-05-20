@@ -266,6 +266,41 @@ void ToFAT12Name(char *fat12name, char *filename){
 	}
 }
 
+__attribute__((regparm(1)))
+void SetEntryTime(Entry *e){
+	uint16_t chcl, dhdl;
+	uint16_t tch,tcl,tdh,tdl;
+	asm volatile(
+			"int 0x1a;"
+			:"=c"(chcl),"=d"(dhdl)
+			:"a"(0x0200)
+			);
+	//得到的是BCD码
+	tch = chcl >> 8;
+	tcl = chcl & 0xFF;
+	tdh = dhdl >> 8;
+	tdl = dhdl & 0xFF;
+	tdh = BCD2HEX(tdh);
+	tdl = BCD2HEX(tdl);
+	tch = BCD2HEX(tch);
+	tcl = BCD2HEX(tcl);
+	e->DIR_WrtTime = (tch << 11) | (tcl << 5) | (tdh >> 1);
+	e->LAST_WrtTime = e->DIR_WrtTime;
+	asm volatile(
+			"int 0x1a;"
+			:"=c"(chcl), "=d"(dhdl)
+			:"a"(0x0400)
+			);
+
+	tdh = dhdl >> 8;
+	tdl = dhdl & 0xFF;
+	tdh = BCD2HEX(tdh);
+	tdl = BCD2HEX(tdl);
+	e->DIR_WrtDate = ((BCD2HEX(chcl) - 1980) << 9) | (tdh << 5) | tdl; 
+	e->LAST_WrtDate = e->DIR_WrtDate;
+	
+}
+
 __attribute__((regparm(2)))
 bool open(File *f, char *filename){
 	memcpy(f->filename, filename, 11);
@@ -288,6 +323,7 @@ void seekp(File *f,uint16_t p){
 char rdbuf[512];
 __attribute__((regparm(3)))
 uint16_t read(File *f, char *data, uint16_t size){
+	if (f->fat12name[0] == ' ' || !f->fat12name[0])return false;
 	if(FindEntry(f->fat12name, &f->e) == 0xFFFF)return false;
 	// _g
 	uint16_t s = f->_g / 512; // 第几块
@@ -325,44 +361,11 @@ uint16_t read(File *f, char *data, uint16_t size){
 	return size;
 }
 
-__attribute__((regparm(1)))
-void SetEntryTime(Entry *e){
-	uint16_t chcl, dhdl;
-	uint16_t tch,tcl,tdh,tdl;
-	asm volatile(
-			"int 0x1a;"
-			:"=c"(chcl),"=d"(dhdl)
-			:"a"(0x0200)
-			);
-	//得到的是BCD码
-	tch = chcl >> 8;
-	tcl = chcl & 0xFF;
-	tdh = dhdl >> 8;
-	tdl = dhdl & 0xFF;
-	tdh = BCD2HEX(tdh);
-	tdl = BCD2HEX(tdl);
-	tch = BCD2HEX(tch);
-	tcl = BCD2HEX(tcl);
-	e->DIR_WrtTime = (tch << 11) | (tcl << 5) | (tdh >> 1);
-	e->LAST_WrtTime = e->DIR_WrtTime;
-	asm volatile(
-			"int 0x1a;"
-			:"=c"(chcl), "=d"(dhdl)
-			:"a"(0x0400)
-			);
-
-	tdh = dhdl >> 8;
-	tdl = dhdl & 0xFF;
-	tdh = BCD2HEX(tdh);
-	tdl = BCD2HEX(tdl);
-	e->DIR_WrtDate = ((BCD2HEX(chcl) - 1980) << 9) | (tdh << 5) | tdl; 
-	e->LAST_WrtDate = e->DIR_WrtDate;
-	
-}
 
 char wtbuf[512];
 __attribute__((regparm(3)))
 bool write(File *f, char *data, uint16_t size){
+	if (f->fat12name[0] == ' ' || !f->fat12name[0])return false;
 	uint16_t eid;
 	if((eid = FindEntry(f->fat12name, &f->e)) == 0xFFFF){
 		//建立Entry
@@ -407,101 +410,6 @@ bool write(File *f, char *data, uint16_t size){
 	//更新Entry Date and Time
 	SetEntryTime(&(f->e));
 	SetEntry(eid, &f->e); //更新Entry
-	return true;
-}
-
-
-char fat12name[11];
-char targetname[11];
-
-__attribute__((regparm(1)))
-bool rm(char *filename){
-	Entry e;	
-	ToFAT12Name(fat12name, filename);
-	uint16_t eid = FindEntry(fat12name, &e);
-	/*
-	if(eid == 0xFFFF)return false;
-	uint16_t cl = e.DIR_FstClus;
-	uint16_t ne;
-	while(cl < 0xFF8){
-		ne = GetNextFat(cl);
-		SetClus(cl, 0); // 设置为空
-		cl = ne;
-	}
-	*/
-	e.DIR_Name[0] = 0xE5; // 标记为删除
-	SetEntry(eid, &e);
-	return true;
-}
-
-__attribute__((regparm(2)))
-bool mv(char *filename, char *target){
-	Entry e;	
-	bool diff = false;
-	for(uint8_t i = 0;i < 11;++i){
-		if (filename[i] != target[i]){
-			diff = true;
-			break;
-		}
-	}
-	if (!diff)return false; // 没有更改名称
-	ToFAT12Name(fat12name, filename);
-	ToFAT12Name(targetname, target);
-	uint16_t eid = FindEntry(fat12name, &e);
-	if (eid == 0xFFFF)return false;
-	memcpy(e.DIR_Name, targetname, 11);
-	SetEntry(eid, &e);
-	return true;
-}
-
-char cpbuf[512];
-Entry te;
-__attribute__((regparm(2)))
-bool cp(char *filename, char *target){
-	Entry e;	
-	bool diff = false;
-	for(uint8_t i = 0;i < 11;++i){
-		if (filename[i] != target[i]){
-			diff = true;
-			break;
-		}
-	}
-	if (!diff)return false; // 没有更改名称
-	ToFAT12Name(fat12name, filename);
-	ToFAT12Name(targetname, target);
-	uint16_t eid = FindEntry(fat12name, &e);
-	if (eid == 0xFFFF)return false;
-	uint16_t cl = e.DIR_FstClus;
-	uint16_t nid = FindEntry(targetname, &te);
-	uint16_t ec = FindEmptyClus();
-	if (ec == 0xFFFF)return false;
-	e.DIR_FstClus = ec;
-	SetClus(ec, 0xFFF);
-	memcpy(e.DIR_Name, targetname, 11);
-
-	if (nid != 0xFFFF){
-		//删除旧数据
-		//为了存储旧数据，暂时不实现
-	}else{
-		nid = FindEmptyEntry();
-		if (nid == 0xFFFF)return false;
-	}
-
-	bool first = true;
-
-	uint16_t wcl = ec;
-	while(cl < 0xFF8){
-		if (!first)wcl = GetNextClus(wcl);
-		if (wcl == 0xFFFF)return false;
-		first = false;
-		//拷贝扇区
-		ReadFloppy(33 + (cl - 2), 1, cpbuf);
-		WriteFloppy(33 + (wcl - 2), 1, cpbuf);
-		cl = GetNextFat(cl);
-	}
-
-	SetEntryTime(&e);
-	SetEntry(nid, &e);
 	return true;
 }
 
