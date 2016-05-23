@@ -4,10 +4,11 @@ from PIL import Image
 from numpy import *
 from scipy.misc import *
 
-im = array(Image.open('g.png'))
+picw = 16
+im = array(Image.open('pao.png'))
 #imshow(im)
 pim = Image.fromarray(uint8(im))
-im = array(pim.resize((32 * 4,32 * 4)))
+im = array(pim.resize((picw * 4,picw * 1)))
 Ihigh = 255
 Ilow = 0
 Imed = (Ihigh + Ilow) / 2
@@ -26,10 +27,10 @@ def ToHex(c):
 fout = open("map256.asm",'w')
 
 def Draw(x,y):
-    for i in range(y * 32, y * 32 + 32): # row
+    for i in range(y * picw, y * picw+ picw): # row
         fout.write("db ")
         count = 0
-        for j in range(x*32,x*32+32): #col
+        for j in range(x*picw,x*picw+picw): #col
             color = im[i][j]
             b = 1
             res = 0
@@ -44,11 +45,11 @@ def Draw(x,y):
                 #b *= 4
             res = int((int(color[0])&0xe0) | ((int(color[1])>>3)&0x1c) | ((int(color[2])>>6)&0x03))
             fout.write(str(hex(res)))
-            if j != x * 32 + 32:
+            if j != x * picw + picw:
                 fout.write(', ')
 
         fout.write('\n')
 
-for y in range(4):
+for y in range(1):
     for x in range(4):
         Draw(x,y)
