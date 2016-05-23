@@ -81,8 +81,11 @@ DrawMap:
 	DrawMapIn:
 
 	mov al, byte [cs:MAP0 + si]
-	mov bl, GridWidth
-	mul bl
+	mov ah, 0
+	mov bx, GridWidth * GridWidth
+	push dx
+	mul bx
+	pop dx
 	add ax, PIC
 	mov bx, ax
 	call DRAW
