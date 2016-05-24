@@ -4,11 +4,15 @@ from PIL import Image
 from numpy import *
 from scipy.misc import *
 
-picw = 16
-im = array(Image.open('pao.png'))
+#需要修改！
+picw = 40
+picr = 4
+picc = 4
+im = array(Image.open('g.png'))
 #imshow(im)
 pim = Image.fromarray(uint8(im))
-im = array(pim.resize((picw * 4,picw * 1)))
+#print im.shape
+im = array(pim.resize((picw * picc,picw * picr)))
 Ihigh = 255
 Ilow = 0
 Imed = (Ihigh + Ilow) / 2
@@ -24,7 +28,7 @@ def ToHex(c):
     t = ['0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f']
     return t[u]
 
-fout = open("map256.asm",'w')
+fout = open("g.asm",'w')
 
 def Draw(x,y):
     for i in range(y * picw, y * picw+ picw): # row
@@ -43,6 +47,8 @@ def Draw(x,y):
                 #    u = 3
                 #res += u * b
                 #b *= 4
+            if color[3] < Imed:
+                color = (255,0,255,255)
             res = int((int(color[0])&0xe0) | ((int(color[1])>>3)&0x1c) | ((int(color[2])>>6)&0x03))
             fout.write(str(hex(res)))
             if j != x * picw + picw:
@@ -50,6 +56,6 @@ def Draw(x,y):
 
         fout.write('\n')
 
-for y in range(1):
-    for x in range(4):
+for y in range(picr):
+    for x in range(picc):
         Draw(x,y)

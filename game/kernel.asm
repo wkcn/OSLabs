@@ -70,6 +70,13 @@ loop SetColor
 
 	call DrawMap
 
+	mov word[cs:DrawRectW], 40
+	mov word[cs:DrawRectH], 40
+	mov bx, G
+	mov cx, GridWidth * 10
+	mov dx, GridWidth * 3
+	call DRAW
+
 	jmp $
 
 DrawMap:
@@ -120,26 +127,43 @@ DRAW:
 	push ds
 	push es
 	pusha
-	mov [cs:DrawY], dx
-	mov [cs:DrawX], cx
 	;[ds:si] -> [es:di]
 	mov si, bx
 	mov ax, cs
 	mov ds, ax
 	mov ax, 0A000h
 	mov es, ax
+	;设置di
 	mov ax, dx
 	mov bx, WinCol * GridWidth
 	mul bx
 	add ax, cx
 	mov di, ax
-	mov ax, GridWidth
+	mov ax, word[cs:DrawRectH] ; 绘制行数
 	DRAW_ONE_LINE:
-	mov cx, GridWidth / 2
-	rep movsw
-	add di, WinCol * GridWidth - GridWidth
+
+	;mov cx, GridWidth / 2
+	;rep movsw
+
+	;绘制一行
+	mov cx, word[cs:DrawRectW] ; 绘制列数
+	MOVSWLOOP:
+	mov bl, [ds:si]
+	cmp bl, 11100011b ; opacity
+	je IS_OPACITY
+	mov [es:di], bl
+	IS_OPACITY:
+	inc si
+	inc di
+	loop MOVSWLOOP
+
+	;换行
+	sub di, word[cs:DrawRectW]
+	add di, WinCol * GridWidth
+
 	dec ax 
 	jnz DRAW_ONE_LINE
+
 	popa
 	pop es
 	pop ds
@@ -149,11 +173,12 @@ DrawCount dw 0
 DrawXCount dw 0
 DrawCol dw 0
 DrawMapCol dw 0
-DrawX dw 0
-DrawY dw 0
-ccc db 0
+DrawRectW dw 16
+DrawRectH dw 16
 
 PIC:
 %include "map256.asm"
+G:
+%include "g.asm"
 MAP0:
 %include "map0.asm"
