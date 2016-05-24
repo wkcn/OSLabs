@@ -3,7 +3,7 @@ BITS 16
 [extern main]
 
 WinCol equ 20
-WinRow equ 15
+WinRow equ 12
 GridWidth equ 16
 
 _start:
@@ -18,9 +18,14 @@ _start:
 	int 10h
 
 	;视频模式
+	;使用VGA 320x400 256色
 	mov ah, 0
 	mov al, 13h
 	int 10h
+	;使用SVGA, 640x480 256色
+	;mov ax, 4F02H
+	;mov bx, 101H
+	;int 10h
 
 	mov dx, 0x3c6
 	mov al,0xff
@@ -54,8 +59,8 @@ SetColor:
 loop SetColor
 
 	;mov bx, PIC
-	;mov cx, 0
-	;mov dx, 0
+	;mov cx, GridWidth * 2
+	;mov dx, GridWidth * 10
 	;call DRAW
 
 	;mov bx, PIC + GridWidth * GridWidth * 1
@@ -112,50 +117,40 @@ DrawMap:
 ;cx = column
 ;dx = row
 DRAW:
-	push dx
-	push cx
-	push bx
-	push ax
-	mov [cs:DrawCol], cx
-	mov word [cs:DrawCount], 0
-	mov word [cs:DrawXCount], 0
-	DRAWPOT:
-
-	mov al, byte[cs:bx]
-	push bx
-	mov ah, 0x0C
-	mov bh, 0 ; 页码
-	int 10h
-	inc cx ; 列
-	pop bx
-
-	inc bx ; 选择下两个像素, 两个像素一字节
-	inc word [cs:DrawCount]
-	inc word [cs:DrawXCount]
-
-	cmp word [cs:DrawXCount], GridWidth
-	jne DCNOT_GW
-
-	cmp word [cs:DrawCount], GridWidth * GridWidth
-	je DRAW_END
-
-	inc dx
-	mov cx, [cs:DrawCol]
-	mov word [cs:DrawXCount], 0
-	DCNOT_GW:
-
-	jmp DRAWPOT
-	DRAW_END:
-	pop ax
-	pop bx
-	pop cx
-	pop dx
+	push ds
+	push es
+	pusha
+	mov [cs:DrawY], dx
+	mov [cs:DrawX], cx
+	;[ds:si] -> [es:di]
+	mov si, bx
+	mov ax, cs
+	mov ds, ax
+	mov ax, 0A000h
+	mov es, ax
+	mov ax, dx
+	mov bx, WinCol * GridWidth
+	mul bx
+	add ax, cx
+	mov di, ax
+	mov ax, GridWidth
+	DRAW_ONE_LINE:
+	mov cx, GridWidth / 2
+	rep movsw
+	add di, WinCol * GridWidth - GridWidth
+	dec ax 
+	jnz DRAW_ONE_LINE
+	popa
+	pop es
+	pop ds
 	ret
 
 DrawCount dw 0
 DrawXCount dw 0
 DrawCol dw 0
 DrawMapCol dw 0
+DrawX dw 0
+DrawY dw 0
 ccc db 0
 
 PIC:
