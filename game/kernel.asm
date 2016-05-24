@@ -5,6 +5,19 @@ BITS 16
 WinCol equ 20
 WinRow equ 12
 GridWidth equ 16
+UpdateTimes equ 40
+
+;写入中断向量表
+%macro WriteIVT 2
+	mov ax,%1
+	mov bx,4
+	mul bx
+	mov si,ax
+	mov ax,%2
+	mov [cs:si],ax ; offset
+	mov ax,cs
+	mov [cs:si + 2],ax
+%endmacro
 
 _start:
 	mov ax, cs
@@ -27,64 +40,27 @@ _start:
 	;mov bx, 101H
 	;int 10h
 
-	mov dx, 0x3c6
-	mov al,0xff
-	out dx, al
+	%include "color.asm"
 
-	mov cl, 255
+	WriteIVT 08h,WKCNINTTimer ; Timer Interupt
 
-SetColor:
-	mov dx, 0x3c8
-	mov al, cl
-	;Set Index
-	out dx, al
+	;SetTimer
+	mov al,34h
+	out 43h,al ; write control word
+	mov ax,1193182/UpdateTimes	;X times / seconds
+	out 40h,al
+	mov al,ah
+	out 40h,al
 
-	mov dx, 0x3c9
-	
-	mov al, cl
-	shr al, 2
-	and al, 0x38
-	out dx, al
-	
-	mov al, cl
-	shl al, 1
-	and al, 0x38
-	out dx, al
-
-	mov al, cl
-	shl al, 4
-	and al, 0x30
-	out dx, al
-
-loop SetColor
-
-	;mov bx, PIC
-	;mov cx, GridWidth * 2
-	;mov dx, GridWidth * 10
-	;call DRAW
-
-	;mov bx, PIC + GridWidth * GridWidth * 1
-	;mov cx, GridWidth
-	;mov dx, 0
-	;call DRAW
-
-	call DrawMap
-
-	mov word[cs:DrawRectW], 40
-	mov word[cs:DrawRectH], 40
-	mov bx, G
-	mov cx, GridWidth * 10
-	mov dx, GridWidth * 3
-	call DRAW
+	sti
 
 	jmp $
 
 DrawMap:
-	push si
-	push dx
-	push cx
-	push bx
-	push ax
+	pusha
+
+	mov word [cs:DrawRectW], 16
+	mov word [cs:DrawRectH], 16
 
 	mov si, 0
 	mov cx, 0
@@ -98,7 +74,7 @@ DrawMap:
 	push dx
 	mul bx
 	pop dx
-	add ax, PIC
+	add ax, MAPPIC
 	mov bx, ax
 	call DRAW
 
@@ -112,11 +88,37 @@ DrawMap:
 	cmp si, WinRow * WinCol
 	jne DrawMapIn
 
-	pop ax
-	pop bx
-	pop cx
-	pop dx
-	pop si
+	popa
+	ret
+
+DrawPlayers:
+	pusha
+	HY_W equ 40
+	HY_H equ 40
+	mov word [cs:DrawRectW], HY_W
+	mov word [cs:DrawRectH], HY_H
+	mov bx, word [cs:(Players + _GRAPH_OFFSET)]
+	mov ax, word [cs:(Players + _PAT_OFFSET)]
+	mov cx, HY_W * HY_H 
+	mul cx
+	add bx, ax
+	mov ax, word [cs:(Players + _DIR_OFFSET)]
+	mov cx, HY_W * HY_H * 4 
+	mul cx
+	add bx, ax
+	xor cx, cx
+	mov cx, word [cs:(Players + _X_OFFSET)]	
+	shr cx, 1
+	mov dx, word [cs:(Players + _Y_OFFSET)] 	
+	shr dx, 1
+	call DRAW
+
+	mov bx, word[cs:(Players + _PAT_OFFSET)]
+	inc bx
+	and bx,0x3
+	mov word[cs:(Players + _PAT_OFFSET)], bx
+
+	popa
 	ret
 
 ;Draw
@@ -169,6 +171,16 @@ DRAW:
 	pop ds
 	ret
 
+WKCNINTTimer:
+	call DrawMap
+	call DrawPlayers
+	mov al,20h
+	out 20h,al
+	out 0A0h,al
+	iret
+
+
+
 DrawCount dw 0
 DrawXCount dw 0
 DrawCol dw 0
@@ -176,7 +188,29 @@ DrawMapCol dw 0
 DrawRectW dw 16
 DrawRectH dw 16
 
-PIC:
+
+%macro SetOffset 1
+	%1_OFFSET equ (%1 - Players)
+%endmacro
+
+SetOffset _GRAPH
+SetOffset _DIR
+SetOffset _PAT
+SetOffset _X
+SetOffset _Y
+SetOffset _TX
+SetOffset _TY
+
+Players:
+	_GRAPH dw G
+	_DIR dw 0
+	_PAT dw 0
+	_X	dw 100h
+	_Y	dw 1000h
+	_TX	dw 0
+	_TY	dw 0
+
+MAPPIC:
 %include "map256.asm"
 G:
 %include "g.asm"
