@@ -7,6 +7,12 @@ WinRow equ 12
 GridWidth equ 16
 UpdateTimes equ 40
 
+%include "keyboard.asm"
+KEY_UP equ 0x4800
+KEY_DOWN equ 0x5000
+KEY_LEFT equ 0x4b00
+KEY_RIGHT equ 0x4d00
+
 ;写入中断向量表
 %macro WriteIVT 2
 	mov ax,%1
@@ -108,9 +114,9 @@ DrawPlayers:
 	add bx, ax
 	xor cx, cx
 	mov cx, word [cs:(Players + _X_OFFSET)]	
-	shr cx, 1
+	shr cx, 4
 	mov dx, word [cs:(Players + _Y_OFFSET)] 	
-	shr dx, 1
+	shr dx, 4
 	call DRAW
 
 	mov bx, word[cs:(Players + _PAT_OFFSET)]
@@ -171,7 +177,105 @@ DRAW:
 	pop ds
 	ret
 
+UpdatePlayers:
+	PlayerV equ 16
+	pusha
+	;CMP X
+	mov ax, word [cs:(Players + _X_OFFSET)]
+	mov bx, word [cs:(Players + _TX_OFFSET)]
+	cmp ax, bx
+	je XEQU
+	ja XA 
+	;X < TX
+	mov word [cs:(Players + _DIR_OFFSET)], 2; turn right
+	add word [cs:(Players + _X_OFFSET)], PlayerV
+	jmp MovePlayer
+	XA:
+	;X > TX
+	mov word [cs:(Players + _DIR_OFFSET)], 1; turn left	
+	sub word [cs:(Players + _X_OFFSET)], PlayerV
+	jmp MovePlayer
+	XEQU:
+
+	;CMP Y
+	mov ax, word [cs:(Players + _Y_OFFSET)]
+	mov bx, word [cs:(Players + _TY_OFFSET)]
+	cmp ax, bx
+	je YEQU
+	ja YA 
+	;Y < TY
+	mov word [cs:(Players + _DIR_OFFSET)], 0; turn down
+	add word [cs:(Players + _Y_OFFSET)], PlayerV
+	jmp MovePlayer
+	YA:
+	;Y > TY
+	mov word [cs:(Players + _DIR_OFFSET)], 3; turn up
+	sub word [cs:(Players + _Y_OFFSET)], PlayerV
+	jmp MovePlayer
+	YEQU:
+
+	mov word [cs:(Players + _PAT_OFFSET)], 0
+	;cmp word [cs:(Players + _PAT_OFFSET)], 0
+	jmp UpdatePlayerEND
+    inc word [cs:(Players + _ANI_OFFSET)]
+	MovePlayer:
+	cmp word [cs:(Players + _ANI_OFFSET)], 0xFFFF
+	jb UpdatePlayerEND
+	mov word [cs:(Players + _ANI_OFFSET)], 0
+	inc word [cs:(Players + _PAT_OFFSET)]
+	and word [cs:(Players + _PAT_OFFSET)], 11b
+	;mov word [cs:(Players + _PAT_OFFSET)], 1
+	UpdatePlayerEND:
+	popa
+	ret
+
+KeyJudge:
+	pusha
+	mov ah, 1
+	int 16h
+	jz KEYEND
+	mov ah, 0
+	int 16h
+
+	PlayerVV equ 0x100
+
+	mov cx, word [cs:(Players + _X_OFFSET)]
+	mov dx, word [cs:(Players + _TX_OFFSET)]
+	cmp cx, dx
+	jne KEYEND
+
+	mov cx, word [cs:(Players + _Y_OFFSET)]
+	mov dx, word [cs:(Players + _TY_OFFSET)]
+	cmp cx, dx
+	jne KEYEND
+	
+	cmp ax, KEY_UP
+	jne NextJudge2
+	sub word[cs:(Players + _TY_OFFSET)], PlayerVV
+	jmp KEYEND
+	NextJudge2:
+	cmp ax, KEY_DOWN
+	jne NextJudge3
+	add word[cs:(Players + _TY_OFFSET)], PlayerVV
+	jmp KEYEND
+	NextJudge3:
+	cmp ax, KEY_LEFT
+	jne NextJudge4
+	sub word[cs:(Players + _TX_OFFSET)], PlayerVV
+	jmp KEYEND
+	NextJudge4:
+	cmp ax, KEY_RIGHT
+	jne KEYEND
+	add word[cs:(Players + _TX_OFFSET)], PlayerVV
+	jmp KEYEND
+
+	KEYEND:
+	popa
+	ret
+
 WKCNINTTimer:
+	call KeyJudge
+	call UpdatePlayers
 	call DrawMap
 	call DrawPlayers
 	mov al,20h
@@ -200,15 +304,17 @@ SetOffset _X
 SetOffset _Y
 SetOffset _TX
 SetOffset _TY
+SetOffset _ANI
 
 Players:
 	_GRAPH dw G
 	_DIR dw 0
 	_PAT dw 0
 	_X	dw 100h
-	_Y	dw 1000h
-	_TX	dw 0
-	_TY	dw 0
+	_Y	dw 100h
+	_TX	dw 100h
+	_TY	dw 100h
+	_ANI dw 0
 
 MAPPIC:
 %include "map256.asm"
