@@ -5,10 +5,10 @@ from numpy import *
 from scipy.misc import *
 
 #需要修改！
-picw = 40
-picr = 4
+picw = 18
+picr = 1
 picc = 4
-im = array(Image.open('g.png'))
+im = array(Image.open('football.png'))
 #imshow(im)
 pim = Image.fromarray(uint8(im))
 #print im.shape
@@ -28,7 +28,7 @@ def ToHex(c):
     t = ['0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f']
     return t[u]
 
-fout = open("g.asm",'w')
+fout = open("football.asm",'w')
 
 def Draw(x,y):
     for i in range(y * picw, y * picw+ picw): # row

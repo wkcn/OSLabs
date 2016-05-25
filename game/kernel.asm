@@ -97,25 +97,25 @@ DrawMap:
 	popa
 	ret
 
-DrawPlayers:
+DrawPlayer:
 	pusha
 	HY_W equ 40
 	HY_H equ 40
 	mov word [cs:DrawRectW], HY_W
 	mov word [cs:DrawRectH], HY_H
-	mov bx, word [cs:(Players + _GRAPH_OFFSET)]
-	mov ax, word [cs:(Players + _PAT_OFFSET)]
+	mov bx, word [cs:(si + _GRAPH_OFFSET)]
+	mov ax, word [cs:(si + _PAT_OFFSET)]
 	mov cx, HY_W * HY_H 
 	mul cx
 	add bx, ax
-	mov ax, word [cs:(Players + _DIR_OFFSET)]
+	mov ax, word [cs:(si + _DIR_OFFSET)]
 	mov cx, HY_W * HY_H * 4 
 	mul cx
 	add bx, ax
 	xor cx, cx
-	mov cx, word [cs:(Players + _X_OFFSET)]	
+	mov cx, word [cs:(si + _X_OFFSET)]	
 	shr cx, 4
-	mov dx, word [cs:(Players + _Y_OFFSET)] 	
+	mov dx, word [cs:(si + _Y_OFFSET)] 	
 	shr dx, 4
 	sub cx, HY_W / 2
 	sub dx, HY_H
@@ -123,6 +123,29 @@ DrawPlayers:
 
 	popa
 	ret
+
+DrawBomb:
+	pusha
+	BombSize equ 18
+	mov word [cs:DrawRectW], BombSize
+	mov word [cs:DrawRectH], BombSize
+	mov bx, word [cs:(si + _GRAPH_B_OFFSET)]
+	mov ax, word [cs:(si + _PAT_B_OFFSET)]
+	mov cx, BombSize * BombSize
+	mul cx
+	add bx, ax
+	xor cx, cx
+	mov cx, word [cs:(si + _X_B_OFFSET)]	
+	shr cx, 4
+	mov dx, word [cs:(si + _Y_B_OFFSET)] 	
+	shr dx, 4
+	sub cx, BombSize / 2
+	sub dx, BombSize
+	call DRAW
+
+	popa
+	ret
+
 
 ;Draw
 ;bx = offset PIC
@@ -174,72 +197,134 @@ DRAW:
 	pop ds
 	ret
 
-UpdatePlayers:
+UpdatePlayer:
 	pusha
-	mov cx, word [cs:(Players + _V_OFFSET)]
+	mov cx, word [cs:(si + _V_OFFSET)]
 	;CMP X
-	mov ax, word [cs:(Players + _X_OFFSET)]
-	mov bx, word [cs:(Players + _TX_OFFSET)]
+	mov ax, word [cs:(si + _X_OFFSET)]
+	mov bx, word [cs:(si + _TX_OFFSET)]
 	cmp ax, bx
 	je XEQU
 	ja XA 
 	;X < TX
-	mov word [cs:(Players + _DIR_OFFSET)], 2; turn right
-	add word [cs:(Players + _X_OFFSET)], cx
-	cmp word [cs:(Players + _X_OFFSET)], bx
+	mov word [cs:(si + _DIR_OFFSET)], 2; turn right
+	add word [cs:(si + _X_OFFSET)], cx
+	cmp word [cs:(si + _X_OFFSET)], bx
 	ja FIX_X
 	jmp MovePlayer
 	XA:
 	;X > TX
-	mov word [cs:(Players + _DIR_OFFSET)], 1; turn left	
-	sub word [cs:(Players + _X_OFFSET)], cx
-	cmp word [cs:(Players + _X_OFFSET)], bx
+	mov word [cs:(si + _DIR_OFFSET)], 1; turn left	
+	sub word [cs:(si + _X_OFFSET)], cx
+	cmp word [cs:(si + _X_OFFSET)], bx
 	jb FIX_X
 	jmp MovePlayer
 	XEQU:
 
 	;CMP Y
-	mov ax, word [cs:(Players + _Y_OFFSET)]
-	mov bx, word [cs:(Players + _TY_OFFSET)]
+	mov ax, word [cs:(si + _Y_OFFSET)]
+	mov bx, word [cs:(si + _TY_OFFSET)]
 	cmp ax, bx
 	je YEQU
 	ja YA 
 	;Y < TY
-	mov word [cs:(Players + _DIR_OFFSET)], 0; turn down
-	add word [cs:(Players + _Y_OFFSET)], cx
-	cmp word [cs:(Players + _Y_OFFSET)], bx
+	mov word [cs:(si + _DIR_OFFSET)], 0; turn down
+	add word [cs:(si + _Y_OFFSET)], cx
+	cmp word [cs:(si + _Y_OFFSET)], bx
 	ja FIX_Y
 	jmp MovePlayer
 	YA:
 	;Y > TY
-	mov word [cs:(Players + _DIR_OFFSET)], 3; turn up
-	sub word [cs:(Players + _Y_OFFSET)], cx
-	cmp word [cs:(Players + _Y_OFFSET)], bx
+	mov word [cs:(si + _DIR_OFFSET)], 3; turn up
+	sub word [cs:(si + _Y_OFFSET)], cx
+	cmp word [cs:(si + _Y_OFFSET)], bx
 	jb FIX_Y
 	jmp MovePlayer
 	YEQU:
 
-	;mov word [cs:(Players + _PAT_OFFSET)], 0
-	cmp word [cs:(Players + _PAT_OFFSET)], 0
+	;mov word [cs:(si + _PAT_OFFSET)], 0
+	cmp word [cs:(si + _PAT_OFFSET)], 0
 	je UpdatePlayerEND
 	jmp MovePlayer
 
 	FIX_X:
-	mov word [cs:(Players + _X_OFFSET)], bx
+	mov word [cs:(si + _X_OFFSET)], bx
 	jmp MovePlayer
 
 	FIX_Y:
-	mov word [cs:(Players + _Y_OFFSET)], bx
+	mov word [cs:(si + _Y_OFFSET)], bx
 	jmp MovePlayer
 
 	MovePlayer:
-    inc word [cs:(Players + _ANI_OFFSET)]
-	cmp word [cs:(Players + _ANI_OFFSET)], 0x6
+    inc word [cs:(si + _ANI_OFFSET)]
+	cmp word [cs:(si + _ANI_OFFSET)], 6
 	jb UpdatePlayerEND
-	mov word [cs:(Players + _ANI_OFFSET)], 0
-	inc word [cs:(Players + _PAT_OFFSET)]
-	and word [cs:(Players + _PAT_OFFSET)], 11b
+	mov word [cs:(si + _ANI_OFFSET)], 0
+	inc word [cs:(si + _PAT_OFFSET)]
+	and word [cs:(si + _PAT_OFFSET)], 11b
 	UpdatePlayerEND:
+	popa
+	ret
+
+UpdateBomb:
+	pusha
+	mov cx, word [cs:(si + _V_B_OFFSET)]
+	;CMP X
+	mov ax, word [cs:(si + _X_B_OFFSET)]
+	mov bx, word [cs:(si + _TX_B_OFFSET)]
+	cmp ax, bx
+	je XEQU_B
+	ja XA_B
+	;X < TX
+	add word [cs:(si + _X_B_OFFSET)], cx
+	cmp word [cs:(si + _X_B_OFFSET)], bx
+	ja FIX_X_B
+	jmp MoveBomb
+	XA_B:
+	;X > TX
+	sub word [cs:(si + _X_B_OFFSET)], cx
+	cmp word [cs:(si + _X_B_OFFSET)], bx
+	jb FIX_X_B
+	jmp MoveBomb
+	XEQU_B:
+
+	;CMP Y
+	mov ax, word [cs:(si + _Y_B_OFFSET)]
+	mov bx, word [cs:(si + _TY_B_OFFSET)]
+	cmp ax, bx
+	je YEQU_B
+	ja YA_B
+	;Y < TY
+	add word [cs:(si + _Y_B_OFFSET)], cx
+	cmp word [cs:(si + _Y_B_OFFSET)], bx
+	ja FIX_Y_B
+	jmp MoveBomb
+	YA_B:
+	;Y > TY
+	sub word [cs:(si + _Y_B_OFFSET)], cx
+	cmp word [cs:(si + _Y_B_OFFSET)], bx
+	jb FIX_Y_B
+	jmp MoveBomb
+	YEQU_B:
+
+	jmp MovePlayer
+
+	FIX_X_B:
+	mov word [cs:(si + _X_B_OFFSET)], bx
+	jmp MoveBomb
+
+	FIX_Y_B:
+	mov word [cs:(si + _Y_B_OFFSET)], bx
+	jmp MoveBomb
+
+	MoveBomb:
+    inc word [cs:(si + _ANI_B_OFFSET)]
+	cmp word [cs:(si + _ANI_B_OFFSET)], 6
+	jb UpdateBombEND
+	mov word [cs:(si + _ANI_B_OFFSET)], 0
+	inc word [cs:(si + _PAT_B_OFFSET)]
+	and word [cs:(si + _PAT_B_OFFSET)], 11b
+	UpdateBombEND:
 	popa
 	ret
 
@@ -254,34 +339,34 @@ KeyJudge:
 
 	PlayerVV equ 0x080
 
-	mov cx, word [cs:(Players + _X_OFFSET)]
-	mov dx, word [cs:(Players + _TX_OFFSET)]
+	mov cx, word [cs:(si + _X_OFFSET)]
+	mov dx, word [cs:(si + _TX_OFFSET)]
 	cmp cx, dx
 	jne KEYEND
 
-	mov cx, word [cs:(Players + _Y_OFFSET)]
-	mov dx, word [cs:(Players + _TY_OFFSET)]
+	mov cx, word [cs:(si + _Y_OFFSET)]
+	mov dx, word [cs:(si + _TY_OFFSET)]
 	cmp cx, dx
 	jne KEYEND
 
 	cmp ax, KEY_UP
 	jne NextJudge2
-	sub word[cs:(Players + _TY_OFFSET)], PlayerVV
+	sub word[cs:(si + _TY_OFFSET)], PlayerVV
 	jmp KEYEND
 	NextJudge2:
 	cmp ax, KEY_DOWN
 	jne NextJudge3
-	add word[cs:(Players + _TY_OFFSET)], PlayerVV
+	add word[cs:(si + _TY_OFFSET)], PlayerVV
 	jmp KEYEND
 	NextJudge3:
 	cmp ax, KEY_LEFT
 	jne NextJudge4
-	sub word[cs:(Players + _TX_OFFSET)], PlayerVV
+	sub word[cs:(si + _TX_OFFSET)], PlayerVV
 	jmp KEYEND
 	NextJudge4:
 	cmp ax, KEY_RIGHT
 	jne KEYEND
-	add word[cs:(Players + _TX_OFFSET)], PlayerVV
+	add word[cs:(si + _TX_OFFSET)], PlayerVV
 	jmp KEYEND
 
 	KEYEND:
@@ -289,10 +374,18 @@ KeyJudge:
 	ret
 
 WKCNINTTimer:
-	call KeyJudge
-	call UpdatePlayers
+	sti
 	call DrawMap
-	call DrawPlayers
+
+	mov si, Players
+	call KeyJudge
+	call UpdatePlayer
+	call DrawPlayer
+
+	mov si, Bombs
+	call UpdateBomb
+	call DrawBomb
+
 	mov al,20h
 	out 20h,al
 	out 0A0h,al
@@ -333,8 +426,35 @@ Players:
 	_ANI dw 0
 	_V	dw 0x20
 
+
+%macro SetOffset_B 1
+	%1_OFFSET equ (%1 - Bombs)
+%endmacro
+
+SetOffset_B _GRAPH_B
+SetOffset_B _PAT_B
+SetOffset_B _X_B
+SetOffset_B _Y_B
+SetOffset_B _TX_B
+SetOffset_B _TY_B
+SetOffset_B _ANI_B
+SetOffset_B _V_B
+
+Bombs:
+	_GRAPH_B dw FOOTBALL
+	_PAT_B dw 0
+	_X_B	dw 1000h
+	_Y_B	dw 1000h
+	_TX_B	dw 1000h
+	_TY_B	dw 1000h
+	_ANI_B dw 0
+	_V_B	dw 0x20
+
+
 MAPPIC:
 %include "map256.asm"
+FOOTBALL:
+%include "football.asm"
 G:
 %include "g.asm"
 MAP0:
