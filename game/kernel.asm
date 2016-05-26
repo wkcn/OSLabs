@@ -28,9 +28,8 @@ KEY_RIGHT equ 0x4d00
 _start:
 	mov ax, cs
 	mov ds, ax
-	mov ax, 0
 	mov ss, ax
-	mov sp, 7c00h
+	mov sp, 100h
 
 	;清屏
 	mov ax, 3
@@ -65,8 +64,8 @@ _start:
 DrawMap:
 	pusha
 
-	mov word [cs:DrawRectW], 16
-	mov word [cs:DrawRectH], 16
+	mov word [cs:DrawRectW], GridWidth
+	mov word [cs:DrawRectH], GridWidth
 
 	mov si, 0
 	mov cx, 0
@@ -75,23 +74,27 @@ DrawMap:
 	DrawMapIn:
 
 	mov al, byte [cs:MAP0 + si]
+	jz DRAWEND
 	mov ah, 0
 	mov bx, GridWidth * GridWidth
 	push dx
 	mul bx
 	pop dx
-	add ax, MAPPIC
+	add ax, MAPPIC - GridWidth * GridWidth
 	mov bx, ax
 	call DRAW
 
+	DRAWEND:
 	add cx, GridWidth
 	cmp cx, GridWidth * WinCol
 	jne DrawMapNotGW
+	;换行
 	mov cx, 0
 	add dx, GridWidth
 	DrawMapNotGW:
 	inc si
 	cmp si, WinRow * WinCol
+
 	jne DrawMapIn
 
 	popa
@@ -159,7 +162,7 @@ DRAW:
 	mov si, bx
 	mov ax, cs
 	mov ds, ax
-	mov ax, 0A000h
+	mov ax, 5000h
 	mov es, ax
 	;设置di
 	mov ax, dx
@@ -373,8 +376,31 @@ KeyJudge:
 	popa
 	ret
 
+UpdateScreen:
+	push es
+	push ds
+	push si
+	push di
+	push ax
+	;[ds:si] -> [es:di]
+	mov ax, 5000h
+	mov ds, ax
+	mov ax, 0A000h
+	mov es, ax
+	mov si, 0
+	mov di, 0
+	mov cx, WinCol * WinRow * GridWidth * GridWidth/ 2
+	rep movsw
+	pop ax
+	pop di
+	pop si
+	pop ds
+	pop es
+	ret
+
 WKCNINTTimer:
 	sti
+
 	call DrawMap
 
 	mov si, Players
@@ -385,6 +411,8 @@ WKCNINTTimer:
 	mov si, Bombs
 	call UpdateBomb
 	call DrawBomb
+
+	call UpdateScreen
 
 	mov al,20h
 	out 20h,al
@@ -453,6 +481,8 @@ Bombs:
 
 MAPPIC:
 %include "map256.asm"
+;PEOPLE:
+;%include "people.asm"
 FOOTBALL:
 %include "football.asm"
 G:
