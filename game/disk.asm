@@ -1,5 +1,5 @@
 
-FileName db "MAPPIC  RES"
+FileNameP dw 0 
 FileOffset dw 0x0000
 FileSegment dw 0x3000
 
@@ -31,7 +31,7 @@ LABEL_SEARCH_IN_ROOT_DIR_BEGIN:
 
 	call	ReadSector	; 调用读扇区函数
 
-	mov	si, FileName	; DS:SI -> " kernal  BIN"
+	mov	si, word[FileNameP]	; DS:SI -> " kernal  BIN"
 	mov	di, word[FileOffset] 	; ES:DI -> BaseOfkernal :0100
 
 	cld					; 清除DF标志位
@@ -60,7 +60,7 @@ LABEL_DIFFERENT:
 	and	di, 0FFE0h		; DI &= E0为了让它指向本条目开头（低5位清零）
 					    ; FFE0h = 1111111111100000（低5位=32=目录条目大小）
 	add	di, 20h			; DI += 20h 下一个目录条目
-	mov	si, FileName	; SI指向装载文件名串的起始地址
+	mov	si, word[FileNameP]	; SI指向装载文件名串的起始地址
 	jmp	LABEL_SEARCH_FOR_kernalBIN; 转到循环开始处
 
 LABEL_GOTO_NEXT_SECTOR_IN_ROOT_DIR:

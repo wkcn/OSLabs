@@ -38,7 +38,7 @@ write_knl: kernel.bin
 	sudo cp $(BUILD_DIR)/kernel.bin $(DISK_DIR)/
 	sudo umount $(DISK_DIR)/
 
-build_progs: mappic.res 
+build_progs: mappic.res huoying.res football.res
 
 	sudo mount -o loop $(IMAGE_NAME) disk/
 
