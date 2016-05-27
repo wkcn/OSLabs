@@ -2,6 +2,7 @@ BUILD_DIR = build
 DISK_DIR = disk
 KITS_DIR = kits
 SOURCE_DIR = .
+RESOURCE_DIR = .
 IMAGE_NAME= MiraiOS.img
 CC = g++
 CFLAGS = -Iinclude -c -m16 -march=i386 -masm=intel -nostdlib -ffreestanding -mpreferred-stack-boundary=2 -lgcc -shared -std=c++11 -Wno-int-to-void-pointer-cast -fpermissive
@@ -18,7 +19,7 @@ QEMUFLAGS = -fda
 BOCHS = bochs
 BOCHSFLAGS = -q -f bochsrc.bxrc
 
-all: build_dir write_image write_knl build_progs
+all: build_dir write_image write_knl cp_resource build_progs
 
 
 build_dir:
@@ -37,12 +38,21 @@ write_knl: kernel.bin
 	sudo cp $(BUILD_DIR)/kernel.bin $(DISK_DIR)/
 	sudo umount $(DISK_DIR)/
 
-build_progs: 
+build_progs: mappic.res 
 
 	sudo mount -o loop $(IMAGE_NAME) disk/
 
 	for name in $^; do\
 		sudo cp $(BUILD_DIR)/$$name $(DISK_DIR)/;\
+	done
+
+	sudo umount $(DISK_DIR)/
+
+cp_resource: 
+	sudo mount -o loop $(IMAGE_NAME) disk/
+
+	for name in $^; do\
+		sudo cp $(RESOURCE_DIR)/$$name $(DISK_DIR)/;\
 	done
 
 	sudo umount $(DISK_DIR)/
@@ -62,6 +72,8 @@ kernel.bin: kernel.o
 	$(CC) $(CFLAGS) $< -o $(BUILD_DIR)/$@ 
 %.o: $(SOURCE_DIR)/%.asm
 	$(AS) $(ASFLAGS) -f elf32 $^ -o $(BUILD_DIR)/$@
+%.res: $(SOURCE_DIR)/%.asm
+	$(AS) $(ASFLAGS) $^ -o $(BUILD_DIR)/$@
 %.com: %.o header.o
 	#$(LD) $(LDFLAGS) -Ttext 0x100 --oformat binary $(BUILD_DIR)/header.o $(BUILD_DIR)/$< -o $(BUILD_DIR)/$@
 	$(LD) $(LDFLAGS) -T $(SOURCE_DIR)/linker_100.ld --oformat binary $(BUILD_DIR)/header.o $(BUILD_DIR)/$< -o $(BUILD_DIR)/$@

@@ -49,6 +49,9 @@ _start:
 
 	WriteIVT 08h,WKCNINTTimer ; Timer Interupt
 
+	;Resource
+	call ReadFloppy
+
 	;SetTimer
 	mov al,34h
 	out 43h,al ; write control word
@@ -60,6 +63,8 @@ _start:
 	sti
 
 	jmp $
+
+%include "disk.asm"
 
 DrawMap:
 	pusha
@@ -80,7 +85,8 @@ DrawMap:
 	push dx
 	mul bx
 	pop dx
-	add ax, MAPPIC - GridWidth * GridWidth
+	;add ax, MAPPIC - GridWidth * GridWidth
+	sub ax, GridWidth * GridWidth
 	mov bx, ax
 	call DRAW
 
@@ -160,7 +166,7 @@ DRAW:
 	pusha
 	;[ds:si] -> [es:di]
 	mov si, bx
-	mov ax, cs
+	mov ax, word[cs:DrawSegment]
 	mov ds, ax
 	mov ax, 5000h
 	mov es, ax
@@ -403,14 +409,14 @@ WKCNINTTimer:
 
 	call DrawMap
 
-	mov si, Players
-	call KeyJudge
-	call UpdatePlayer
-	call DrawPlayer
+	;mov si, Players
+	;call KeyJudge
+	;call UpdatePlayer
+	;call DrawPlayer
 
-	mov si, Bombs
-	call UpdateBomb
-	call DrawBomb
+	;mov si, Bombs
+	;call UpdateBomb
+	;call DrawBomb
 
 	call UpdateScreen
 
@@ -425,6 +431,7 @@ DrawCount dw 0
 DrawXCount dw 0
 DrawCol dw 0
 DrawMapCol dw 0
+DrawSegment dw 0x3000
 DrawRectW dw 16
 DrawRectH dw 16
 
