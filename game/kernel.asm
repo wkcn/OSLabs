@@ -17,6 +17,7 @@ BOSS_SEG equ FOOTBALL_SEG + 0x200
 POWER_SEG equ BOSS_SEG + 0x800 
 
 PowerTime equ 1
+BombTime equ 4
 
 %include "keyboard.asm"
 KEY_UP equ 0x4800
@@ -370,6 +371,18 @@ FindEmptyPower:
 	mov byte [cs:(di + _USED_P_OFFSET)], 1
 	ret
 
+FindEmptyBomb:
+	;return di
+	mov di, Bombs
+	FindBombIn:
+		cmp byte [cs:(di + _USED_B_OFFSET)], 0
+		je FoundBomb
+		add di, BombDataSize
+	jmp FindBombIn
+	FoundBomb:
+	mov byte [cs:(di + _USED_B_OFFSET)], 1
+	ret
+
 OldPowerX dw 0
 OldPowerY dw 0
 BombPower db 0
@@ -398,7 +411,7 @@ UpdateBomb:
 		mov bx, dx
 		add cx, %1
 		add dx, %2
-		mov byte[cs:BombFirst], 1
+		;mov byte[cs:BombFirst], 1
 		BombingIn_%3:
 			;mov word [cs:OldPowerX], cx
 			;mov word [cs:OldPowerY], dx
@@ -411,8 +424,21 @@ UpdateBomb:
 			call IsPassed	
 			jz THROUGH_%3
 
-			cmp byte [cs:BombFirst], 1
-			je FinishBombing_%3
+			;cmp byte [cs:BombFirst], 1
+			;je FinishBombing_%3
+			push cx
+			push dx
+			mov cx, ax
+			mov dx, bx
+			call IsPassed
+			jz CanPutPower_%3
+			pop dx
+			pop cx
+			jmp FinishBombing_%3
+
+			CanPutPower_%3:
+			pop dx
+			pop cx
 
 			call FindEmptyPower 
 			;不穿透情况
@@ -444,7 +470,7 @@ UpdateBomb:
 			mov word [cs:(di + _COUNT_P_OFFSET)], PowerTime * UpdateTimes
 			pop bx
 			pop ax
-		mov byte[cs:BombFirst], 0
+		;mov byte[cs:BombFirst], 0
 		dec byte [cs:BombPower]
 		jnz BombingIn_%3
 		FinishBombing_%3:
@@ -546,7 +572,7 @@ KeyJudge:
 	jmp KEYEND
 	NextJudge4:
 	cmp ax, KEY_RIGHT
-	jne KEYEND
+	jne NextJudge5
 
 
 	mov word[cs:(si + _DIR_OFFSET)], 2
@@ -554,6 +580,42 @@ KeyJudge:
 	call IsPassed
 	jne XBLOCK
 	add word[cs:(si + _TX_OFFSET)], PlayerVV
+
+	jmp KEYEND
+
+	NextJudge5:
+	cmp ax, KEY_SPACEBAR
+	jne KEYEND
+	mov cx, word [cs:(si + _X_OFFSET)]
+	mov dx, word [cs:(si + _Y_OFFSET)]
+	add cx, 0x80
+	and cx, 0xFF00
+	add dx, 0x80
+	and dx, 0xFF00
+	call FindEmptyBomb
+
+	;_GRAPH_B dw FOOTBALL_SEG
+	;_USED_B db 1
+	;_POWER_B db 3
+	;_COUNT_B dw 5 * UpdateTimes
+	;_PAT_B dw 0
+	;_X_B	dw 000h
+	;_Y_B	dw 000h
+	;_TX_B	dw 000h
+	;_TY_B	dw 000h
+	;_ANI_B dw 0
+	;_V_B	dw 0x20
+	mov word[cs:(di + _GRAPH_B_OFFSET)], FOOTBALL_SEG
+	mov byte[cs:(di + _USED_B_OFFSET)], 1
+	mov byte[cs:(di + _POWER_B_OFFSET)], 3
+	mov word[cs:(di + _COUNT_B_OFFSET)], BombTime * UpdateTimes
+	mov word[cs:(di + _PAT_B_OFFSET)], 0
+	mov word[cs:(di + _X_B_OFFSET)], cx
+	mov word[cs:(di + _Y_B_OFFSET)], dx
+	mov word[cs:(di + _TX_B_OFFSET)], cx
+	mov word[cs:(di + _TY_B_OFFSET)], dx
+	mov word[cs:(di + _ANI_B_OFFSET)], 0
+	mov word[cs:(di + _V_B_OFFSET)], 0x20
 
 	jmp KEYEND
 
@@ -642,8 +704,11 @@ WKCNINTTimer:
 	call UpdatePlayer
 	call DrawPlayer
 
+	;Bombs
 	mov si, Bombs
+	mov cx, WinCol * WinRow
 
+	UpdateBombs:
 	cmp byte[cs:(si + _USED_B_OFFSET)], 0
 	je NoUsedBomb
 	call UpdateBomb
@@ -654,6 +719,9 @@ WKCNINTTimer:
 	call DrawBomb
 
 	NoUsedBomb:
+
+	add si, BombDataSize
+	loop UpdateBombs
 
 
 	;Power
@@ -756,6 +824,10 @@ Bombs:
 	_TY_B	dw 000h
 	_ANI_B dw 0
 	_V_B	dw 0x20
+FirstBombEnd:
+
+BombDataSize equ FirstBombEnd - Bombs
+times BombDataSize * WinCol * WinRow db 0
 
 %macro SetOffset_P 1
 	%1_OFFSET equ (%1 - Powers)
