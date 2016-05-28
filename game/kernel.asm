@@ -10,9 +10,10 @@ UpdateTimes equ 40
 VideoBuffer equ 0x8000
 
 MAPPIC0_SEG equ 0x4000
-HUOYING_SEG equ 0x5000
-PEOPLE_SEG equ 0x6000
-FOOTBALL_SEG equ 0x7000
+HUOYING_SEG equ MAPPIC0_SEG + 0x800 
+PEOPLE_SEG equ HUOYING_SEG + 0x800
+FOOTBALL_SEG equ PEOPLE_SEG + 0x200
+BOSS_SEG equ FOOTBALL_SEG + 0x200
 
 %include "keyboard.asm"
 KEY_UP equ 0x4800
@@ -69,6 +70,7 @@ _start:
 	LoadFile HUOYING, HUOYING_SEG, 0
 	LoadFile FOOTBALL, FOOTBALL_SEG, 0
 	LoadFile PEOPLE, PEOPLE_SEG, 0
+	LoadFile BOSSName, BOSS_SEG, 0
 
 	;SetTimer
 	mov al,34h
@@ -173,8 +175,10 @@ DrawPlayer:
 	shr cx, 4
 	mov dx, word [cs:(si + _Y_OFFSET)] 	
 	shr dx, 4
-	sub cx, HY_W / 2
-	sub dx, HY_H
+	;sub cx, HY_W / 2
+	;sub dx, HY_H
+	sub cx, - (GridWidth - HY_W) / 2
+	add dx, (GridWidth - HY_H)
 	call DRAW
 
 	popa
@@ -199,8 +203,10 @@ DrawBomb:
 	shr cx, 4
 	mov dx, word [cs:(si + _Y_B_OFFSET)] 	
 	shr dx, 4
-	sub cx, BombSize / 2
-	sub dx, BombSize
+	;sub cx, BombSize / 2
+	;sub dx, BombSize
+	sub cx, - (GridWidth - BombSize) / 2
+	add dx, (GridWidth - BombSize)
 	call DRAW
 
 	popa
@@ -409,24 +415,54 @@ KeyJudge:
 	cmp cx, dx
 	jne KEYEND
 
+
+	mov cx, word [cs:(si + _X_OFFSET)]
+	mov dx, word [cs:(si + _Y_OFFSET)]
+	add cx, 0x80
+	add dx, 0x80
+	shr cx, 8
+	shr dx, 8
+
 	cmp ax, KEY_UP
 	jne NextJudge2
+
+	dec dx
+	call IsPassed
+	jne KEYEND
 	sub word[cs:(si + _TY_OFFSET)], PlayerVV
+
 	jmp KEYEND
 	NextJudge2:
 	cmp ax, KEY_DOWN
 	jne NextJudge3
+
+
+	inc dx
+	call IsPassed
+	jne KEYEND
 	add word[cs:(si + _TY_OFFSET)], PlayerVV
+
 	jmp KEYEND
 	NextJudge3:
 	cmp ax, KEY_LEFT
 	jne NextJudge4
+
+	dec cx
+	call IsPassed
+	jne KEYEND
 	sub word[cs:(si + _TX_OFFSET)], PlayerVV
+
 	jmp KEYEND
 	NextJudge4:
 	cmp ax, KEY_RIGHT
 	jne KEYEND
+
+
+	inc cx
+	call IsPassed
+	jne KEYEND
 	add word[cs:(si + _TX_OFFSET)], PlayerVV
+
 	jmp KEYEND
 
 	KEYEND:
@@ -455,6 +491,38 @@ UpdateScreen:
 	pop es
 	ret
 
+IsPassed:
+	;cx: column
+	;dx: row
+	;passed = je = zf
+	;Check Border
+	;类似检测数组越界, 用无符号判定
+	push dx
+	push cx
+	push bx
+	push ax
+	cmp cx, WinCol
+	jae NotPassed
+	cmp dx, WinRow
+	jae NotPassed
+	mov ax, dx
+	mov dx, WinCol
+	mul dx
+	add ax, cx
+	mov bx, ax
+	cmp byte[cs:PASSED_DATA + bx], 0
+	jmp IsPassedEnd
+	NotPassed:
+	;设置ZF = 0
+	mov bx, 0
+	cmp bx, 1
+	IsPassedEnd:
+	pop ax
+	pop bx
+	pop cx
+	pop dx
+	ret
+
 WKCNINTTimer:
 	sti
 
@@ -462,6 +530,10 @@ WKCNINTTimer:
 
 	mov si, Players
 	call KeyJudge
+	call UpdatePlayer
+	call DrawPlayer
+
+	mov si, BOSS
 	call UpdatePlayer
 	call DrawPlayer
 
@@ -503,14 +575,24 @@ SetOffset _V
 
 Players:
 	_GRAPH dw HUOYING_SEG
-	_DIR dw 0
+	_DIR dw 2
 	_PAT dw 0
-	_X	dw 100h
-	_Y	dw 100h
-	_TX	dw 100h
-	_TY	dw 100h
+	_X	dw 700h
+	_Y	dw 600h
+	_TX	dw 700h
+	_TY	dw 600h
 	_ANI dw 0
 	_V	dw 0x20
+BOSS:
+	_GRAPH2 dw BOSS_SEG
+	_DIR2 dw 1
+	_PAT2 dw 0
+	_X2	dw 0b00h
+	_Y2	dw 600h
+	_TX2	dw 0b00h
+	_TY2	dw 600h
+	_ANI2 dw 0
+	_V2	dw 0x30
 
 
 %macro SetOffset_B 1
@@ -529,10 +611,10 @@ SetOffset_B _V_B
 Bombs:
 	_GRAPH_B dw FOOTBALL_SEG
 	_PAT_B dw 0
-	_X_B	dw 1000h
-	_Y_B	dw 1000h
-	_TX_B	dw 1000h
-	_TY_B	dw 1000h
+	_X_B	dw 000h
+	_Y_B	dw 000h
+	_TX_B	dw 000h
+	_TY_B	dw 000h
 	_ANI_B dw 0
 	_V_B	dw 0x20
 
@@ -541,7 +623,10 @@ MAPPIC0 db "MAPPIC  RES"
 HUOYING db "HUOYING RES"
 FOOTBALL db "FOOTBALLRES"
 PEOPLE db "PEOPLE  RES"
+BOSSName db "BOSS    RES"
 MAP0:
 %include "map0.asm"
 MAP3:
 %include "map3.asm"
+PASSED_DATA:
+%include "map3.asm" ; 非0的均不能走
