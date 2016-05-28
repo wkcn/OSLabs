@@ -561,13 +561,42 @@ UpdateBomb:
 	Bombing 0,-1,3
 
 	MOVEJUDGE:
-	;移动判断
+		
+
+	UpdateBombAni:
+	;动画刷新
     inc word [cs:(si + _ANI_B_OFFSET)]
 	cmp word [cs:(si + _ANI_B_OFFSET)], 6
 	jb UpdateBombEND
 	mov word [cs:(si + _ANI_B_OFFSET)], 0
 	inc word [cs:(si + _PAT_B_OFFSET)]
 	and word [cs:(si + _PAT_B_OFFSET)], 11b
+
+	;移动判断
+	cmp word [cs:(si + _JUMP_COUNT_B_OFFSET)], 0
+	jle UpdateBombEND 
+
+	dec word [cs:si + _JUMP_COUNT_B_OFFSET]
+
+	mov cx, word [cs:(si + _X_B_OFFSET)]
+	mov bx, word [cs:si + _JUMP_COUNT_B_OFFSET]
+	mov ax, bx
+	mul cx
+	add ax, word [cs:si + _TX_B_OFFSET]
+	inc bx
+	div bx
+	mov word[cs:si + _X_B_OFFSET], ax
+
+
+	mov cx, word [cs:(si + _Y_B_OFFSET)]
+	mov bx, word [cs:si + _JUMP_COUNT_B_OFFSET]
+	mov ax, bx
+	mul cx
+	add ax, word [cs:si + _TY_B_OFFSET]
+	inc bx
+	div bx
+	mov word[cs:si + _Y_B_OFFSET], ax
+
 	UpdateBombEND:
 
 	popa
@@ -681,7 +710,6 @@ KeyJudge:
 	mov word[cs:(di + _TX_B_OFFSET)], cx
 	mov word[cs:(di + _TY_B_OFFSET)], dx
 	mov word[cs:(di + _ANI_B_OFFSET)], 0
-	mov word[cs:(di + _V_B_OFFSET)], 0x20
 
 	shr cx, 8
 	shr dx, 8
@@ -949,20 +977,20 @@ SetOffset_B _Y_B
 SetOffset_B _TX_B
 SetOffset_B _TY_B
 SetOffset_B _ANI_B
-SetOffset_B _V_B
+SetOffset_B _JUMP_COUNT_B
 
 Bombs:
 	_GRAPH_B dw FOOTBALL_SEG
-	_USED_B db 1
+	_USED_B db 0
 	_POWER_B db 3
 	_COUNT_B dw 5 * UpdateTimes
 	_PAT_B dw 0
 	_X_B	dw 000h
 	_Y_B	dw 000h
-	_TX_B	dw 000h
-	_TY_B	dw 000h
+	_TX_B	dw 0a00h
+	_TY_B	dw 0a00h
 	_ANI_B dw 0
-	_V_B	dw 0x20
+	_JUMP_COUNT_B dw 20
 FirstBombEnd:
 
 BombDataSize equ FirstBombEnd - Bombs
