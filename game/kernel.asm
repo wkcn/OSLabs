@@ -7,6 +7,13 @@ WinRow equ 12
 GridWidth equ 16
 UpdateTimes equ 40
 
+VideoBuffer equ 0x8000
+
+MAPPIC0_SEG equ 0x4000
+HUOYING_SEG equ 0x5000
+PEOPLE_SEG equ 0x6000
+FOOTBALL_SEG equ 0x7000
+
 %include "keyboard.asm"
 KEY_UP equ 0x4800
 KEY_DOWN equ 0x5000
@@ -23,6 +30,16 @@ KEY_RIGHT equ 0x4d00
 	mov [cs:si],ax ; offset
 	mov ax,cs
 	mov [cs:si + 2],ax
+%endmacro
+
+%macro LoadFile 3
+	;Name, Segment, Offset
+	;NOte, num, num
+	;ex: LoadFile Miku, 39, 0
+	mov word[cs:FileNameP], %1
+	mov word[cs:FileSegment], %2
+	mov word[cs:FileOffset], %3
+	call ReadFloppy
 %endmacro
 
 _start:
@@ -47,10 +64,11 @@ _start:
 
 	%include "color.asm"
 
-	WriteIVT 08h,WKCNINTTimer ; Timer Interupt
-
 	;Resource
-	call ReadFloppy
+	LoadFile MAPPIC0, MAPPIC0_SEG, 0
+	LoadFile HUOYING, HUOYING_SEG, 0
+	LoadFile FOOTBALL, FOOTBALL_SEG, 0
+	LoadFile PEOPLE, PEOPLE_SEG, 0
 
 	;SetTimer
 	mov al,34h
@@ -59,6 +77,9 @@ _start:
 	out 40h,al
 	mov al,ah
 	out 40h,al
+
+	;当这个被执行时， 时钟中断会马上开始！
+	WriteIVT 08h,WKCNINTTimer ; Timer Interupt
 
 	sti
 
@@ -72,14 +93,33 @@ DrawMap:
 	mov word [cs:DrawRectW], GridWidth
 	mov word [cs:DrawRectH], GridWidth
 
-	mov si, 0
+	mov word [cs:DrawSegment], MAPPIC0_SEG
+	mov si, MAP0
+	call DrawMapLayer
+
+	mov word [cs:DrawSegment], PEOPLE_SEG
+	mov si, MAP3
+	call DrawMapLayer
+
+	popa
+	ret
+
+DrawMapLayer:
+
+	pusha 
+
+	mov word [cs:DrawRectW], GridWidth
+	mov word [cs:DrawRectH], GridWidth
+
+	mov di, 0
 	mov cx, 0
 	mov dx, 0
 
 	DrawMapIn:
 
-	mov al, byte [cs:MAP0 + si]
-	jz DRAWEND
+	mov al, byte [cs:si]
+	cmp al, 0
+	je DRAWEND
 	mov ah, 0
 	mov bx, GridWidth * GridWidth
 	push dx
@@ -99,11 +139,13 @@ DrawMap:
 	add dx, GridWidth
 	DrawMapNotGW:
 	inc si
-	cmp si, WinRow * WinCol
+	inc di
+	cmp di, WinRow * WinCol
 
 	jne DrawMapIn
 
 	popa
+
 	ret
 
 DrawPlayer:
@@ -112,7 +154,12 @@ DrawPlayer:
 	HY_H equ 40
 	mov word [cs:DrawRectW], HY_W
 	mov word [cs:DrawRectH], HY_H
-	mov bx, word [cs:(si + _GRAPH_OFFSET)]
+	mov word [cs:DrawSegment], HUOYING_SEG
+
+	mov ax, word [cs:(si + _GRAPH_OFFSET)]
+	mov word [cs:DrawSegment], ax
+
+	mov bx, 0
 	mov ax, word [cs:(si + _PAT_OFFSET)]
 	mov cx, HY_W * HY_H 
 	mul cx
@@ -138,7 +185,11 @@ DrawBomb:
 	BombSize equ 18
 	mov word [cs:DrawRectW], BombSize
 	mov word [cs:DrawRectH], BombSize
-	mov bx, word [cs:(si + _GRAPH_B_OFFSET)]
+
+	mov ax, word [cs:(si + _GRAPH_B_OFFSET)]
+	mov word [cs:DrawSegment], ax
+
+	mov bx, 0
 	mov ax, word [cs:(si + _PAT_B_OFFSET)]
 	mov cx, BombSize * BombSize
 	mul cx
@@ -168,7 +219,7 @@ DRAW:
 	mov si, bx
 	mov ax, word[cs:DrawSegment]
 	mov ds, ax
-	mov ax, 5000h
+	mov ax, VideoBuffer
 	mov es, ax
 	;设置di
 	mov ax, dx
@@ -389,7 +440,7 @@ UpdateScreen:
 	push di
 	push ax
 	;[ds:si] -> [es:di]
-	mov ax, 5000h
+	mov ax, VideoBuffer
 	mov ds, ax
 	mov ax, 0A000h
 	mov es, ax
@@ -409,14 +460,14 @@ WKCNINTTimer:
 
 	call DrawMap
 
-	;mov si, Players
-	;call KeyJudge
-	;call UpdatePlayer
-	;call DrawPlayer
+	mov si, Players
+	call KeyJudge
+	call UpdatePlayer
+	call DrawPlayer
 
-	;mov si, Bombs
-	;call UpdateBomb
-	;call DrawBomb
+	mov si, Bombs
+	call UpdateBomb
+	call DrawBomb
 
 	call UpdateScreen
 
@@ -451,7 +502,7 @@ SetOffset _ANI
 SetOffset _V
 
 Players:
-	_GRAPH dw G
+	_GRAPH dw HUOYING_SEG
 	_DIR dw 0
 	_PAT dw 0
 	_X	dw 100h
@@ -476,7 +527,7 @@ SetOffset_B _ANI_B
 SetOffset_B _V_B
 
 Bombs:
-	_GRAPH_B dw FOOTBALL
+	_GRAPH_B dw FOOTBALL_SEG
 	_PAT_B dw 0
 	_X_B	dw 1000h
 	_Y_B	dw 1000h
@@ -486,13 +537,11 @@ Bombs:
 	_V_B	dw 0x20
 
 
-MAPPIC:
-%include "map256.asm"
-;PEOPLE:
-;%include "people.asm"
-FOOTBALL:
-%include "football.asm"
-G:
-%include "g.asm"
+MAPPIC0 db "MAPPIC  RES"
+HUOYING db "HUOYING RES"
+FOOTBALL db "FOOTBALLRES"
+PEOPLE db "PEOPLE  RES"
 MAP0:
 %include "map0.asm"
+MAP3:
+%include "map3.asm"
