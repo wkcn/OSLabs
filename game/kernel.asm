@@ -16,6 +16,8 @@ FOOTBALL_SEG equ PEOPLE_SEG + 0x200
 BOSS_SEG equ FOOTBALL_SEG + 0x200
 POWER_SEG equ BOSS_SEG + 0x800 
 
+PowerTime equ 1
+
 %include "keyboard.asm"
 KEY_UP equ 0x4800
 KEY_DOWN equ 0x5000
@@ -72,6 +74,7 @@ _start:
 	LoadFile FOOTBALL, FOOTBALL_SEG, 0
 	LoadFile PEOPLE, PEOPLE_SEG, 0
 	LoadFile BOSSName, BOSS_SEG, 0
+	LoadFile PowerName, POWER_SEG, 0
 
 	;SetTimer
 	mov al,34h
@@ -214,6 +217,28 @@ DrawBomb:
 	ret
 
 
+DrawPower:
+	pusha
+	mov word [cs:DrawRectW], GridWidth
+	mov word [cs:DrawRectH], GridWidth
+
+	mov word [cs:DrawSegment], POWER_SEG
+
+	mov bx, 0
+	mov ax, word [cs:(si + _PAT_P_OFFSET)]
+	mov cx, GridWidth * GridWidth
+	mul cx
+	add bx, ax
+	xor cx, cx
+	mov cx, word [cs:(si + _X_P_OFFSET)]	
+	shr cx, 4
+	mov dx, word [cs:(si + _Y_P_OFFSET)] 	
+	shr dx, 4
+	call DRAW
+
+	popa
+	ret
+
 ;Draw
 ;bx = offset PIC
 ;cx = column
@@ -333,6 +358,23 @@ UpdatePlayer:
 	popa
 	ret
 
+FindEmptyPower:
+	;return di
+	mov di, Powers
+	FindPowerIn:
+		cmp byte [cs:(di + _USED_P_OFFSET)], 0
+		je FoundPower
+		add di, PowerSize
+	jmp FindPowerIn
+	FoundPower:
+	mov byte [cs:(di + _USED_P_OFFSET)], 1
+	ret
+
+OldPowerX dw 0
+OldPowerY dw 0
+BombPower db 0
+BombFirst db 0
+
 UpdateBomb:
 	pusha
 	;爆炸判断
@@ -340,59 +382,94 @@ UpdateBomb:
 	jnz MOVEJUDGE
 
 	mov byte [cs:(si + _USED_B_OFFSET)], 0
+	;Bombed
+	%macro Bombing 3
+		mov cx, word [cs:(si + _X_B_OFFSET)]
+		mov dx, word [cs:(si + _Y_B_OFFSET)]
+		add cx, 0x80
+		add dx, 0x80
+		shr cx, 8
+		shr dx, 8
+		mov bl, byte [cs:(si + _POWER_B_OFFSET)]
+		mov byte [cs:(BombPower)], bl
+		;mov word [cs:OldPowerX], cx
+		;mov word [cs:OldPowerY], dx
+		mov ax, cx
+		mov bx, dx
+		add cx, %1
+		add dx, %2
+		mov byte[cs:BombFirst], 1
+		BombingIn_%3:
+			;mov word [cs:OldPowerX], cx
+			;mov word [cs:OldPowerY], dx
+			;add cx, %1
+			;add dx, %2
+			mov ax, cx
+			mov bx, dx
+			add cx, %1
+			add dx, %2
+			call IsPassed	
+			jz THROUGH_%3
+
+			cmp byte [cs:BombFirst], 1
+			je FinishBombing_%3
+
+			call FindEmptyPower 
+			;不穿透情况
+			mov word [cs:(di + _PAT_P_OFFSET)], %3
+			mov byte [cs:BombPower], 1
+			jmp SetPowerPated_%3
+
+			THROUGH_%3:
+			call FindEmptyPower 
+			;穿透情况
+			cmp byte[cs:BombPower], 1
+			jle PowerEnd_%3
+
+			mov word [cs:(di + _PAT_P_OFFSET)], %3 + 4
+			jmp SetPowerPated_%3
+
+			PowerEnd_%3:
+			mov word [cs:(di + _PAT_P_OFFSET)], %3
+
+
+
+			SetPowerPated_%3:
+			push ax
+			push bx
+			shl ax, 8
+			shl bx, 8
+			mov word [cs:(di + _X_P_OFFSET)], ax
+			mov word [cs:(di + _Y_P_OFFSET)], bx
+			mov word [cs:(di + _COUNT_P_OFFSET)], PowerTime * UpdateTimes
+			pop bx
+			pop ax
+		mov byte[cs:BombFirst], 0
+		dec byte [cs:BombPower]
+		jnz BombingIn_%3
+		FinishBombing_%3:
+	%endmacro
+
+	;center
+	mov cx, word [cs:(si + _X_B_OFFSET)]
+	mov dx, word [cs:(si + _Y_B_OFFSET)]
+	add cx, 0x80
+	add dx, 0x80
+	and cx, 0xFF00
+	and dx, 0xFF00
+	call FindEmptyPower
+	mov word [cs:(di + _PAT_P_OFFSET)], 8
+	mov word [cs:(di + _X_P_OFFSET)], cx
+	mov word [cs:(di + _Y_P_OFFSET)], dx
+	mov word [cs:(di + _COUNT_P_OFFSET)], PowerTime * UpdateTimes
+
+	Bombing 0,1,0
+	Bombing -1,0,1
+	Bombing 1,0,2
+	Bombing 0,-1,3
 
 	MOVEJUDGE:
 	;移动判断
-	mov cx, word [cs:(si + _V_B_OFFSET)]
-	;CMP X
-	mov ax, word [cs:(si + _X_B_OFFSET)]
-	mov bx, word [cs:(si + _TX_B_OFFSET)]
-	cmp ax, bx
-	je XEQU_B
-	ja XA_B
-	;X < TX
-	add word [cs:(si + _X_B_OFFSET)], cx
-	cmp word [cs:(si + _X_B_OFFSET)], bx
-	ja FIX_X_B
-	jmp MoveBomb
-	XA_B:
-	;X > TX
-	sub word [cs:(si + _X_B_OFFSET)], cx
-	cmp word [cs:(si + _X_B_OFFSET)], bx
-	jb FIX_X_B
-	jmp MoveBomb
-	XEQU_B:
-
-	;CMP Y
-	mov ax, word [cs:(si + _Y_B_OFFSET)]
-	mov bx, word [cs:(si + _TY_B_OFFSET)]
-	cmp ax, bx
-	je YEQU_B
-	ja YA_B
-	;Y < TY
-	add word [cs:(si + _Y_B_OFFSET)], cx
-	cmp word [cs:(si + _Y_B_OFFSET)], bx
-	ja FIX_Y_B
-	jmp MoveBomb
-	YA_B:
-	;Y > TY
-	sub word [cs:(si + _Y_B_OFFSET)], cx
-	cmp word [cs:(si + _Y_B_OFFSET)], bx
-	jb FIX_Y_B
-	jmp MoveBomb
-	YEQU_B:
-
-	jmp MovePlayer
-
-	FIX_X_B:
-	mov word [cs:(si + _X_B_OFFSET)], bx
-	jmp MoveBomb
-
-	FIX_Y_B:
-	mov word [cs:(si + _Y_B_OFFSET)], bx
-	jmp MoveBomb
-
-	MoveBomb:
     inc word [cs:(si + _ANI_B_OFFSET)]
 	cmp word [cs:(si + _ANI_B_OFFSET)], 6
 	jb UpdateBombEND
@@ -400,6 +477,7 @@ UpdateBomb:
 	inc word [cs:(si + _PAT_B_OFFSET)]
 	and word [cs:(si + _PAT_B_OFFSET)], 11b
 	UpdateBombEND:
+
 	popa
 	ret
 
@@ -577,6 +655,25 @@ WKCNINTTimer:
 
 	NoUsedBomb:
 
+
+	;Power
+	mov si, Powers
+	mov cx, WinCol * WinRow
+
+	UpdatePower:
+	cmp byte[cs:si + _USED_P_OFFSET], 0
+	je NextPower 
+	dec word[cs:si + _COUNT_P_OFFSET]
+	jnz PowerNotZero
+	mov byte[cs:si + _USED_P_OFFSET], 0
+	PowerNotZero:
+	
+	call DrawPower	
+
+	NextPower:	
+	add si, PowerSize
+	loop UpdatePower 
+
 	call UpdateScreen
 
 	mov al,20h
@@ -671,11 +768,15 @@ SetOffset_P _X_P
 SetOffset_P _Y_P
 
 Powers:
-	_USED_P db 1
+	_USED_P db 0
 	_PAT_P dw 0
-	_COUNT_P dw 5 * UpdateTimes
-	_X_P dw 1000h
-	_Y_P dw 1000h
+	_COUNT_P dw 0 
+	_X_P dw 0000h
+	_Y_P dw 0000h
+FirstPowersEnd:
+
+PowerSize equ FirstPowersEnd - Powers
+times PowerSize * WinCol * WinRow db 0
 
 
 MAPPIC0 db "MAPPIC  RES"
@@ -683,7 +784,7 @@ HUOYING db "HUOYING RES"
 FOOTBALL db "FOOTBALLRES"
 PEOPLE db "PEOPLE  RES"
 BOSSName db "BOSS    RES"
-POWERNAME db "POWER   RES"
+PowerName db "POWER   RES"
 MAP0:
 %include "map0.asm"
 MAP3:
