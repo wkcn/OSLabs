@@ -19,6 +19,10 @@ POWER_SEG equ BOSS_SEG + 0x800
 PowerTime equ 1
 BombTime equ 4
 
+;state
+BombFlag equ 0x01
+PowerFlag equ 0x02
+
 %include "keyboard.asm"
 KEY_UP equ 0x4800
 KEY_DOWN equ 0x5000
@@ -391,6 +395,25 @@ BombFirst db 0
 UpdateBomb:
 	pusha
 	;爆炸判断
+
+
+	mov cx, word [cs:(si + _X_B_OFFSET)]
+	mov dx, word [cs:(si + _Y_B_OFFSET)]
+	shr cx, 8
+	shr dx, 8
+
+	mov ax, dx
+	mov dx, WinCol
+	mul dx
+	add ax, cx
+	mov bx, ax
+	cmp byte[cs:STATE_DATA + bx], PowerFlag
+	jne NoPowerTrigger
+	cmp word [cs:(si + _COUNT_B_OFFSET)], 1
+	jle NoPowerTrigger
+	mov word [cs:(si + _COUNT_B_OFFSET)], 1
+	NoPowerTrigger:
+
 	dec word [cs:(si + _COUNT_B_OFFSET)]
 	jnz MOVEJUDGE
 
@@ -399,8 +422,9 @@ UpdateBomb:
 	%macro Bombing 3
 		mov cx, word [cs:(si + _X_B_OFFSET)]
 		mov dx, word [cs:(si + _Y_B_OFFSET)]
-		add cx, 0x80
-		add dx, 0x80
+		;以下两句不必要
+		;add cx, 0x80
+		;add dx, 0x80
 		shr cx, 8
 		shr dx, 8
 		mov bl, byte [cs:(si + _POWER_B_OFFSET)]
@@ -461,15 +485,37 @@ UpdateBomb:
 
 
 			SetPowerPated_%3:
-			push ax
 			push bx
+			push ax
 			shl ax, 8
 			shl bx, 8
 			mov word [cs:(di + _X_P_OFFSET)], ax
 			mov word [cs:(di + _Y_P_OFFSET)], bx
 			mov word [cs:(di + _COUNT_P_OFFSET)], PowerTime * UpdateTimes
-			pop bx
 			pop ax
+			pop bx
+
+			
+			push dx
+			push cx
+			push bx
+			push ax
+
+			mov cx, ax
+			mov ax, bx
+			mov bx, WinCol
+			mul bx
+			add ax, cx
+			mov bx, ax
+			mov byte [cs:STATE_DATA + bx], PowerFlag
+
+			pop ax
+			pop bx
+			pop cx
+			pop dx
+
+
+
 		;mov byte[cs:BombFirst], 0
 		dec byte [cs:BombPower]
 		jnz BombingIn_%3
@@ -488,6 +534,25 @@ UpdateBomb:
 	mov word [cs:(di + _X_P_OFFSET)], cx
 	mov word [cs:(di + _Y_P_OFFSET)], dx
 	mov word [cs:(di + _COUNT_P_OFFSET)], PowerTime * UpdateTimes
+
+	push dx
+	push cx
+	push bx
+	push ax
+
+	shl cx, 8
+	shl dx, 8
+	mov ax, dx
+	mov dx, WinCol
+	mul dx
+	add ax, cx
+	mov bx, ax
+	mov byte[cs:STATE_DATA + bx], PowerFlag
+
+	pop ax
+	pop bx
+	pop cx
+	pop dx
 
 	Bombing 0,1,0
 	Bombing -1,0,1
@@ -733,7 +798,33 @@ WKCNINTTimer:
 	je NextPower 
 	dec word[cs:si + _COUNT_P_OFFSET]
 	jnz PowerNotZero
+
+
+	push dx
+	push cx
+	push bx
+	push ax
+
+	mov cx, word [cs:(si + _X_P_OFFSET)]
+	mov dx, word [cs:(si + _Y_P_OFFSET)]
+
+	shr cx, 8
+	shr dx, 8
+	mov ax, dx
+	mov dx, WinCol
+	mul dx
+	add ax, cx
+	mov bx, ax
+	mov byte[cs:STATE_DATA + bx], 0
+
+	pop ax
+	pop bx
+	pop cx
+	pop dx
+	
 	mov byte[cs:si + _USED_P_OFFSET], 0
+
+
 	PowerNotZero:
 	
 	call DrawPower	
@@ -863,3 +954,5 @@ MAP3:
 %include "map3.asm"
 PASSED_DATA:
 %include "map3.asm" ; 非0的均不能走
+STATE_DATA:
+times WinCol * WinRow db 0
