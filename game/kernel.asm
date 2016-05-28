@@ -540,13 +540,14 @@ UpdateBomb:
 	push bx
 	push ax
 
-	shl cx, 8
-	shl dx, 8
+	shr cx, 8
+	shr dx, 8
 	mov ax, dx
 	mov dx, WinCol
 	mul dx
 	add ax, cx
 	mov bx, ax
+	;原地会将原来的BombFlag -> PowerFlag
 	mov byte[cs:STATE_DATA + bx], PowerFlag
 
 	pop ax
@@ -607,7 +608,7 @@ KeyJudge:
 
 	mov word[cs:(si + _DIR_OFFSET)], 3
 	dec dx
-	call IsPassed
+	call IsPassedPlayer
 	jne YBLOCK
 	sub word[cs:(si + _TY_OFFSET)], PlayerVV
 
@@ -619,7 +620,7 @@ KeyJudge:
 
 	mov word[cs:(si + _DIR_OFFSET)], 0
 	inc dx
-	call IsPassed
+	call IsPassedPlayer
 	jne YBLOCK
 	add word[cs:(si + _TY_OFFSET)], PlayerVV
 
@@ -630,7 +631,7 @@ KeyJudge:
 
 	mov word[cs:(si + _DIR_OFFSET)], 1
 	dec cx
-	call IsPassed
+	call IsPassedPlayer
 	jne XBLOCK
 	sub word[cs:(si + _TX_OFFSET)], PlayerVV
 
@@ -642,7 +643,7 @@ KeyJudge:
 
 	mov word[cs:(si + _DIR_OFFSET)], 2
 	inc cx
-	call IsPassed
+	call IsPassedPlayer
 	jne XBLOCK
 	add word[cs:(si + _TX_OFFSET)], PlayerVV
 
@@ -681,6 +682,15 @@ KeyJudge:
 	mov word[cs:(di + _TY_B_OFFSET)], dx
 	mov word[cs:(di + _ANI_B_OFFSET)], 0
 	mov word[cs:(di + _V_B_OFFSET)], 0x20
+
+	shr cx, 8
+	shr dx, 8
+	mov ax, dx
+	mov dx, WinCol
+	mul dx
+	add ax, cx
+	mov bx, ax
+	mov byte[cs:STATE_DATA + bx], BombFlag
 
 	jmp KEYEND
 
@@ -744,13 +754,51 @@ IsPassed:
 	mul dx
 	add ax, cx
 	mov bx, ax
+
 	cmp byte[cs:PASSED_DATA + bx], 0
 	jmp IsPassedEnd
+
 	NotPassed:
 	;设置ZF = 0
 	mov bx, 0
 	cmp bx, 1
 	IsPassedEnd:
+	pop ax
+	pop bx
+	pop cx
+	pop dx
+	ret
+
+IsPassedPlayer:
+	;cx: column
+	;dx: row
+	;passed = je = zf
+	;Check Border
+	;类似检测数组越界, 用无符号判定
+	push dx
+	push cx
+	push bx
+	push ax
+	cmp cx, WinCol
+	jae NotPassedPlayer
+	cmp dx, WinRow
+	jae NotPassedPlayer
+	mov ax, dx
+	mov dx, WinCol
+	mul dx
+	add ax, cx
+	mov bx, ax
+
+	cmp byte[cs:STATE_DATA + bx], BombFlag
+	je NotPassedPlayer ; 不能走上炸弹
+	cmp byte[cs:PASSED_DATA + bx], 0
+	jmp IsPassedEndPlayer
+
+	NotPassedPlayer:
+	;设置ZF = 0
+	mov bx, 0
+	cmp bx, 1
+	IsPassedEndPlayer:
 	pop ax
 	pop bx
 	pop cx
