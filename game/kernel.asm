@@ -18,6 +18,7 @@ POWER_SEG equ BOSS_SEG + 0x800
 
 PowerTime equ 1
 BombTime equ 4
+FootballTime equ 2
 
 ;state
 BombFlag equ 0x01
@@ -81,6 +82,8 @@ _start:
 	LoadFile BOSSName, BOSS_SEG, 0
 	LoadFile PowerName, POWER_SEG, 0
 
+	call srand
+
 	;SetTimer
 	mov al,34h
 	out 43h,al ; write control word
@@ -97,6 +100,7 @@ _start:
 	jmp $
 
 %include "disk.asm"
+%include "rand.asm"
 
 DrawMap:
 	pusha
@@ -577,6 +581,18 @@ UpdateBomb:
 	jle UpdateBombEND 
 
 	dec word [cs:si + _JUMP_COUNT_B_OFFSET]
+	jnz JumpCountNotZero
+	mov cx, word [cs:si + _TX_B_OFFSET]
+	mov dx, word [cs:si + _TY_B_OFFSET]
+	shr cx, 8
+	shr dx, 8
+	mov ax, dx
+	mov dx, WinCol
+	mul dx
+	add ax, cx
+	mov bx, ax
+	mov byte[cs:STATE_DATA + bx], BombFlag
+	JumpCountNotZero:
 
 	mov cx, word [cs:(si + _X_B_OFFSET)]
 	mov bx, word [cs:si + _JUMP_COUNT_B_OFFSET]
@@ -845,6 +861,90 @@ WKCNINTTimer:
 	call UpdatePlayer
 	call DrawPlayer
 
+	;FootBall
+
+	dec word[cs:FootBallTC]
+	jnz NoFootBall
+	mov word[cs:FootBallTC], FootballTime * UpdateTimes
+	mov byte[cs:FootBallNum], 3
+
+	PutFB:
+
+	;不知道为什么，除法溢出时会卡住
+	xor dx, dx
+	call rand
+	mov bx, WinCol
+	div bx
+	mov cx, dx
+	xor dx, dx
+	call rand
+	mov bx, WinRow
+	div bx
+	call rand
+	test ax, 1
+	jz FBLeft
+	mov ax, 0
+	jmp FBRight
+	FBLeft:
+	mov ax, (WinCol - 1)
+	shl ax, 8
+	FBRight:
+
+	call IsPassedPlayer
+	jne PutFB
+
+	;Put
+
+	;push dx
+	;push cx
+	;push bx
+	;push ax
+	;mov ax, dx
+	;mov dx, WinCol
+	;mul dx
+	;add ax, cx
+	;mov bx, ax
+	;mov byte[cs:STATE_DATA + bx], BombFlag
+	;pop ax
+	;pop bx
+	;pop cx
+	;pop dx
+
+	;jump count = cx + dx
+	mov bx, cx
+	add bx, dx
+
+	shl cx, 8
+	shl dx, 8
+
+
+	call FindEmptyBomb
+	mov word[cs:(di + _GRAPH_B_OFFSET)], FOOTBALL_SEG
+	mov byte[cs:(di + _POWER_B_OFFSET)], 3
+	mov word[cs:(di + _COUNT_B_OFFSET)], BombTime * UpdateTimes
+	mov word[cs:(di + _PAT_B_OFFSET)], 0
+	mov word[cs:(di + _X_B_OFFSET)], ax
+	mov word[cs:(di + _TX_B_OFFSET)], cx
+	mov word[cs:(di + _TY_B_OFFSET)], dx
+	mov word[cs:(di + _ANI_B_OFFSET)], 0
+
+	mov word[cs:(di + _JUMP_COUNT_B_OFFSET)], bx
+
+	call rand
+	xor dx, dx
+	mov bx, WinRow
+	div bx
+	shl dx, 8
+	mov word[cs:(di + _Y_B_OFFSET)], dx
+
+	mov byte[cs:(di + _USED_B_OFFSET)], 1
+
+
+	dec byte[cs:FootBallNum]
+	jnz PutFB
+
+	NoFootBall:
+
 	;Bombs
 	mov si, Bombs
 	mov cx, WinCol * WinRow
@@ -1024,6 +1124,10 @@ FOOTBALL db "FOOTBALLRES"
 PEOPLE db "PEOPLE  RES"
 BOSSName db "BOSS    RES"
 PowerName db "POWER   RES"
+
+FootBallTC dw FootballTime * UpdateTimes
+FootBallNum db 0
+
 MAP0:
 %include "map0.asm"
 MAP3:
