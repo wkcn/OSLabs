@@ -5,7 +5,7 @@ BITS 16
 WinCol equ 20
 WinRow equ 12
 GridWidth equ 16
-UpdateTimes equ 40
+UpdateTimes equ 60
 
 VideoBuffer equ 0x8000
 
@@ -14,6 +14,7 @@ HUOYING_SEG equ MAPPIC0_SEG + 0x800
 PEOPLE_SEG equ HUOYING_SEG + 0x800
 FOOTBALL_SEG equ PEOPLE_SEG + 0x200
 BOSS_SEG equ FOOTBALL_SEG + 0x200
+POWER_SEG equ BOSS_SEG + 0x800 
 
 %include "keyboard.asm"
 KEY_UP equ 0x4800
@@ -334,6 +335,14 @@ UpdatePlayer:
 
 UpdateBomb:
 	pusha
+	;爆炸判断
+	dec word [cs:(si + _COUNT_B_OFFSET)]
+	jnz MOVEJUDGE
+
+	mov byte [cs:(si + _USED_B_OFFSET)], 0
+
+	MOVEJUDGE:
+	;移动判断
 	mov cx, word [cs:(si + _V_B_OFFSET)]
 	;CMP X
 	mov ax, word [cs:(si + _X_B_OFFSET)]
@@ -418,6 +427,7 @@ KeyJudge:
 
 	mov cx, word [cs:(si + _X_OFFSET)]
 	mov dx, word [cs:(si + _Y_OFFSET)]
+
 	add cx, 0x80
 	add dx, 0x80
 	shr cx, 8
@@ -426,9 +436,10 @@ KeyJudge:
 	cmp ax, KEY_UP
 	jne NextJudge2
 
+	mov word[cs:(si + _DIR_OFFSET)], 3
 	dec dx
 	call IsPassed
-	jne KEYEND
+	jne YBLOCK
 	sub word[cs:(si + _TY_OFFSET)], PlayerVV
 
 	jmp KEYEND
@@ -437,9 +448,10 @@ KeyJudge:
 	jne NextJudge3
 
 
+	mov word[cs:(si + _DIR_OFFSET)], 0
 	inc dx
 	call IsPassed
-	jne KEYEND
+	jne YBLOCK
 	add word[cs:(si + _TY_OFFSET)], PlayerVV
 
 	jmp KEYEND
@@ -447,9 +459,10 @@ KeyJudge:
 	cmp ax, KEY_LEFT
 	jne NextJudge4
 
+	mov word[cs:(si + _DIR_OFFSET)], 1
 	dec cx
 	call IsPassed
-	jne KEYEND
+	jne XBLOCK
 	sub word[cs:(si + _TX_OFFSET)], PlayerVV
 
 	jmp KEYEND
@@ -458,12 +471,28 @@ KeyJudge:
 	jne KEYEND
 
 
+	mov word[cs:(si + _DIR_OFFSET)], 2
 	inc cx
 	call IsPassed
-	jne KEYEND
+	jne XBLOCK
 	add word[cs:(si + _TX_OFFSET)], PlayerVV
 
 	jmp KEYEND
+
+	XBLOCK:
+	mov cx, word [cs:(si + _TX_OFFSET)]
+	add cx, 0x80
+	shr cx, 8
+	shl cx, 8
+	mov word [cs:(si + _TX_OFFSET)], cx
+	jmp KEYEND
+
+	YBLOCK:
+	mov cx, word [cs:(si + _TY_OFFSET)]
+	add cx, 0x80
+	shr cx, 8
+	shl cx, 8
+	mov word [cs:(si + _TY_OFFSET)], cx
 
 	KEYEND:
 	popa
@@ -524,8 +553,6 @@ IsPassed:
 	ret
 
 WKCNINTTimer:
-	sti
-
 	call DrawMap
 
 	mov si, Players
@@ -538,8 +565,17 @@ WKCNINTTimer:
 	call DrawPlayer
 
 	mov si, Bombs
+
+	cmp byte[cs:(si + _USED_B_OFFSET)], 0
+	je NoUsedBomb
 	call UpdateBomb
+
+	cmp byte[cs:(si + _USED_B_OFFSET)], 0
+	je NoUsedBomb
+
 	call DrawBomb
+
+	NoUsedBomb:
 
 	call UpdateScreen
 
@@ -600,6 +636,9 @@ BOSS:
 %endmacro
 
 SetOffset_B _GRAPH_B
+SetOffset_B _USED_B
+SetOffset_B _POWER_B
+SetOffset_B _COUNT_B
 SetOffset_B _PAT_B
 SetOffset_B _X_B
 SetOffset_B _Y_B
@@ -610,6 +649,9 @@ SetOffset_B _V_B
 
 Bombs:
 	_GRAPH_B dw FOOTBALL_SEG
+	_USED_B db 1
+	_POWER_B db 3
+	_COUNT_B dw 5 * UpdateTimes
 	_PAT_B dw 0
 	_X_B	dw 000h
 	_Y_B	dw 000h
@@ -618,12 +660,30 @@ Bombs:
 	_ANI_B dw 0
 	_V_B	dw 0x20
 
+%macro SetOffset_P 1
+	%1_OFFSET equ (%1 - Powers)
+%endmacro
+
+SetOffset_P _USED_P
+SetOffset_P _PAT_P
+SetOffset_P _COUNT_P
+SetOffset_P _X_P
+SetOffset_P _Y_P
+
+Powers:
+	_USED_P db 1
+	_PAT_P dw 0
+	_COUNT_P dw 5 * UpdateTimes
+	_X_P dw 1000h
+	_Y_P dw 1000h
+
 
 MAPPIC0 db "MAPPIC  RES"
 HUOYING db "HUOYING RES"
 FOOTBALL db "FOOTBALLRES"
 PEOPLE db "PEOPLE  RES"
 BOSSName db "BOSS    RES"
+POWERNAME db "POWER   RES"
 MAP0:
 %include "map0.asm"
 MAP3:
