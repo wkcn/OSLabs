@@ -19,10 +19,15 @@ POWER_SEG equ BOSS_SEG + 0x800
 PowerTime equ 1
 BombTime equ 4
 FootballTime equ 2
+TQP equ 3 ; 踢球最大距离
 
 ;state
 BombFlag equ 0x01
 PowerFlag equ 0x02
+
+
+TotalBomb equ WinCol * WinRow
+TotalPower equ WinCol * WinRow
 
 %include "keyboard.asm"
 KEY_UP equ 0x4800
@@ -618,6 +623,72 @@ UpdateBomb:
 	popa
 	ret
 
+TQX dw 0
+TQY dw 0
+FBInd dw 0
+FBpos dw 0
+
+TQIN:
+	;首先判断(cx,dx)是否有足球
+	mov ax, dx
+	mov dx, WinCol
+	mul dx
+	add ax, dx
+	mov bx, ax
+	cmp byte [cs:STATE_DATA + bx], BombFlag
+	jne NOFB
+	;存在足球
+	mov word [cs:FBpos], bx; 保存位置
+
+	mov si, Bombs
+	mov cx, TotalBomb
+	mov ah, byte [cs:TQX + 1] 
+	mov al, byte [cs:TQY + 1] 
+	FindFB:
+		cmp byte[cs:si + _X_B_OFFSET + 1], ah
+		jne NextFB
+		cmp byte[cs:si + _Y_B_OFFSET + 1], al
+		jne NextFB
+		jmp FoundFB
+		NextFB:
+	loop FindFB
+	FoundFB:
+	;si is football	
+	xor cx, cx
+	xor dx, dx
+	mov cl, ah
+	mov dl, al
+	mov ax, TQP
+	mov word [cs:si + _JUMP_COUNT_B_OFFSET], 10
+	TT:
+		add cx, word[cs:TQX]
+		add dx, word[cs:TQY]
+		call IsPassedPlayer
+		jne TTNEXT
+		push cx
+		push dx
+		shl cx, 8
+		shl dx, 8
+		mov word [cs:si + _TX_B_OFFSET], cx
+		mov word [cs:si + _TY_B_OFFSET], dx
+		inc word [cs:si + _JUMP_COUNT_B_OFFSET]
+		pop dx
+		pop cx
+		TTNEXT:
+	loop TT
+	TTEND:
+
+	NOFB:
+	ret
+
+%macro TQ 2
+	pusha
+	mov word[cs:TQX], %1
+	mov word[cs:TQY], %2
+	call TQIN
+	popa
+%endmacro
+
 KeyJudge:
 	pusha
 
@@ -653,6 +724,7 @@ KeyJudge:
 
 	mov word[cs:(si + _DIR_OFFSET)], 3
 	dec dx
+	TQ 0,-1
 	call IsPassedPlayer
 	jne YBLOCK
 	sub word[cs:(si + _TY_OFFSET)], PlayerVV
@@ -665,6 +737,7 @@ KeyJudge:
 
 	mov word[cs:(si + _DIR_OFFSET)], 0
 	inc dx
+	TQ 0,1
 	call IsPassedPlayer
 	jne YBLOCK
 	add word[cs:(si + _TY_OFFSET)], PlayerVV
@@ -676,6 +749,7 @@ KeyJudge:
 
 	mov word[cs:(si + _DIR_OFFSET)], 1
 	dec cx
+	TQ -1,0
 	call IsPassedPlayer
 	jne XBLOCK
 	sub word[cs:(si + _TX_OFFSET)], PlayerVV
@@ -688,6 +762,7 @@ KeyJudge:
 
 	mov word[cs:(si + _DIR_OFFSET)], 2
 	inc cx
+	TQ 1,0
 	call IsPassedPlayer
 	jne XBLOCK
 	add word[cs:(si + _TX_OFFSET)], PlayerVV
@@ -852,15 +927,6 @@ IsPassedPlayer:
 WKCNINTTimer:
 	call DrawMap
 
-	mov si, Players
-	call KeyJudge
-	call UpdatePlayer
-	call DrawPlayer
-
-	mov si, BOSS
-	call UpdatePlayer
-	call DrawPlayer
-
 	;FootBall
 
 	dec word[cs:FootBallTC]
@@ -876,43 +942,27 @@ WKCNINTTimer:
 	mov bx, WinCol
 	div bx
 	mov cx, dx
+
 	xor dx, dx
 	call rand
 	mov bx, WinRow
 	div bx
-	call rand
-	test ax, 1
-	jz FBLeft
-	mov ax, 0
-	jmp FBRight
-	FBLeft:
-	mov ax, (WinCol - 1)
-	shl ax, 8
-	FBRight:
 
 	call IsPassedPlayer
 	jne PutFB
 
+	cmp cx, WinCol / 2
+	jge FBRight
+	mov ax, 0
+	jmp FBLR
+	FBRight:
+	mov ax, WinCol - 1
+	shl ax, 8
+
+	FBLR:
+
 	;Put
-
-	;push dx
-	;push cx
-	;push bx
-	;push ax
-	;mov ax, dx
-	;mov dx, WinCol
-	;mul dx
-	;add ax, cx
-	;mov bx, ax
-	;mov byte[cs:STATE_DATA + bx], BombFlag
-	;pop ax
-	;pop bx
-	;pop cx
-	;pop dx
-
-	;jump count = cx + dx
-	mov bx, cx
-	add bx, dx
+	;jump count = delta x + delta y
 
 	shl cx, 8
 	shl dx, 8
@@ -928,7 +978,6 @@ WKCNINTTimer:
 	mov word[cs:(di + _TY_B_OFFSET)], dx
 	mov word[cs:(di + _ANI_B_OFFSET)], 0
 
-	mov word[cs:(di + _JUMP_COUNT_B_OFFSET)], bx
 
 	call rand
 	xor dx, dx
@@ -936,6 +985,34 @@ WKCNINTTimer:
 	div bx
 	shl dx, 8
 	mov word[cs:(di + _Y_B_OFFSET)], dx
+
+	;compute jump count
+	mov cx, word [cs:di + _X_B_OFFSET]
+	cmp cx, word [cs:di + _TX_B_OFFSET]
+	jg XGreaterTX
+	mov cx, word [cs:di + _TX_OFFSET]
+	sub cx, word [cs:di + _X_OFFSET]
+	jmp NextXTX
+	XGreaterTX:
+	sub cx, word [cs:di + _TX_B_OFFSET]
+	NextXTX:
+
+
+	mov dx, word [cs:di + _Y_B_OFFSET]
+	cmp dx, word [cs:di + _TY_B_OFFSET]
+	jg YGreaterTY
+	mov dx, word [cs:di + _TY_OFFSET]
+	sub dx, word [cs:di + _Y_OFFSET]
+	jmp NextYTY
+	YGreaterTY:
+	sub dx, word [cs:di + _TY_B_OFFSET]
+	NextYTY:
+	shl cx, 8
+	shl dx, 8
+	add cx, dx
+	add cx, 8
+
+	mov word[cs:(di + _JUMP_COUNT_B_OFFSET)], cx
 
 	mov byte[cs:(di + _USED_B_OFFSET)], 1
 
@@ -947,7 +1024,7 @@ WKCNINTTimer:
 
 	;Bombs
 	mov si, Bombs
-	mov cx, WinCol * WinRow
+	mov cx, TotalBomb
 
 	UpdateBombs:
 	cmp byte[cs:(si + _USED_B_OFFSET)], 0
@@ -964,10 +1041,20 @@ WKCNINTTimer:
 	add si, BombDataSize
 	loop UpdateBombs
 
+	;Roles
+	mov si, Players
+	call KeyJudge
+	call UpdatePlayer
+	call DrawPlayer
+
+	mov si, BOSS
+	call UpdatePlayer
+	call DrawPlayer
+
 
 	;Power
 	mov si, Powers
-	mov cx, WinCol * WinRow
+	mov cx, TotalPower
 
 	UpdatePower:
 	cmp byte[cs:si + _USED_P_OFFSET], 0
