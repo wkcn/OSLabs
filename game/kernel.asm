@@ -791,6 +791,7 @@ KeyJudge:
 	jmp KEYEND
 
 	NextJudge5:
+	jmp KEYEND ; 暂时不允许角色自己放泡泡
 	cmp ax, KEY_SPACEBAR
 	jne KEYEND
 	mov cx, word [cs:(si + _X_OFFSET)]
