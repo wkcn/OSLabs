@@ -18,7 +18,8 @@ POWER_SEG equ BOSS_SEG + 0x800
 
 PowerTime equ 1
 BombTime equ 4
-FootballTime equ 2
+FootballTime equ 3
+FootballIncTime equ 9
 TQP equ 5 ; 踢球最大距离
 
 ;state
@@ -26,7 +27,7 @@ BombFlag equ 0x01
 PowerFlag equ 0x02
 
 
-TotalBomb equ WinCol * WinRow
+TotalBomb equ 20 
 TotalPower equ WinCol * WinRow
 
 %include "keyboard.asm"
@@ -608,6 +609,7 @@ UpdateBomb:
 	; cx = x
 	mul cx
 	add ax, word [cs:si + _TX_B_OFFSET]
+	adc dx, 0
 	inc bx
 	div bx
 	mov word[cs:si + _X_B_OFFSET], ax
@@ -618,6 +620,7 @@ UpdateBomb:
 	mov ax, bx
 	mul cx
 	add ax, word [cs:si + _TY_B_OFFSET]
+	adc dx, 0
 	inc bx
 	div bx
 	mov word[cs:si + _Y_B_OFFSET], ax
@@ -947,10 +950,19 @@ WKCNINTTimer:
 
 	;FootBall
 
+	cmp byte[cs:FootBallMaxNum], TotalBomb
+	je NoFBInc
+	dec word[cs:FootBallIncCount]
+	jnz NoFBInc
+	mov word[cs:FootBallIncCount], FootballIncTime * UpdateTimes
+	inc byte[cs:FootBallMaxNum]
+	NoFBInc:
+
 	dec word[cs:FootBallTC]
 	jnz NoFootBall
 	mov word[cs:FootBallTC], FootballTime * UpdateTimes
-	mov byte[cs:FootBallNum], 3
+	mov al, byte [cs:FootBallMaxNum]
+	mov byte[cs:FootBallNum], al
 
 	PutFB:
 
@@ -1232,6 +1244,8 @@ PowerName db "POWER   RES"
 
 FootBallTC dw FootballTime * UpdateTimes
 FootBallNum db 0
+FootBallMaxNum db 3
+FootBallIncCount dw FootballIncTime * UpdateTimes
 
 MAP0:
 %include "map0.asm"
