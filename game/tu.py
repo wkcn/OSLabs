@@ -5,14 +5,15 @@ from numpy import *
 from scipy.misc import *
 
 #需要修改！
-picw = 18
+picw = 320
+pich = 200
 picr = 1
-picc = 4
-im = array(Image.open('football.png'))
+picc = 1
+im = array(Image.open('title2.png'))
 #imshow(im)
 pim = Image.fromarray(uint8(im))
 #print im.shape
-im = array(pim.resize((picw * picc,picw * picr)))
+im = array(pim.resize((picw * picc,pich * picr)))
 Ihigh = 255
 Ilow = 0
 Imed = (Ihigh + Ilow) / 2
@@ -28,10 +29,10 @@ def ToHex(c):
     t = ['0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f']
     return t[u]
 
-fout = open("football.asm",'w')
+fout = open("title.asm",'w')
 
 def Draw(x,y):
-    for i in range(y * picw, y * picw+ picw): # row
+    for i in range(y * pich, y * pich+ pich): # row
         fout.write("db ")
         count = 0
         for j in range(x*picw,x*picw+picw): #col
@@ -47,8 +48,8 @@ def Draw(x,y):
                 #    u = 3
                 #res += u * b
                 #b *= 4
-            if color[3] < Imed:
-                color = (255,0,255,255)
+            #if color[3] < Imed:
+            #    color = (255,0,255,255)
             res = int((int(color[0])&0xe0) | ((int(color[1])>>3)&0x1c) | ((int(color[2])>>6)&0x03))
             fout.write(str(hex(res)))
             if j != x * picw + picw:

@@ -22,7 +22,7 @@ WinRow equ 12
 GridWidth equ 16
 UpdateTimes equ 60
 
-VideoBuffer equ 0x7000
+VideoBuffer equ 0x8000
 
 MAPPIC0_SEG equ 0x4000
 HUOYING_SEG equ MAPPIC0_SEG + 0x800 
@@ -30,6 +30,9 @@ PEOPLE_SEG equ HUOYING_SEG + 0x800
 FOOTBALL_SEG equ PEOPLE_SEG + 0x200
 BOSS_SEG equ FOOTBALL_SEG + 0x200
 POWER_SEG equ BOSS_SEG + 0x800 
+WIN_SEG equ POWER_SEG + 0x200 
+LOSE_SEG equ WIN_SEG + 0x200
+TITLE_SEG equ LOSE_SEG + 0x200
 
 BossMaxHP equ 10
 
@@ -104,6 +107,9 @@ _start:
 	LoadFile PEOPLE, PEOPLE_SEG, 0
 	LoadFile BOSSName, BOSS_SEG, 0
 	LoadFile PowerName, POWER_SEG, 0
+	LoadFile WinName, WIN_SEG, 0
+	LoadFile LoseName, LOSE_SEG, 0
+	LoadFile TitleName, TITLE_SEG, 0
 
 	call srand
 
@@ -120,10 +126,68 @@ _start:
 
 	sti
 
+	REFRESH_GAME:
+
+	mov word[cs:DrawRectW], 320 
+	mov word[cs:DrawRectH], 200
+	mov word[cs:DrawSegment], TITLE_SEG
+	mov bx, 0
+	mov cx, 0
+	mov dx, 0 
+	call DRAW
+	call UpdateScreen
+
+	mov ah, 0
+	int 16h
+	call StartGame
+
+
+	TEST_PRESS:
+	cmp byte[cs:IsStartGame], 0
+	jne TEST_PRESS
+	mov ah, 0
+	int 16h
+	jmp REFRESH_GAME
+
 	jmp $
 
 %include "disk.asm"
 %include "rand.asm"
+
+StartGame:
+	mov si, Players
+	mov word[cs:si + _X_OFFSET], 700h
+	mov word[cs:si + _Y_OFFSET], 600h
+	mov word[cs:si + _TX_OFFSET], 700h
+	mov word[cs:si + _TY_OFFSET], 600h
+	mov si, BOSS
+	mov word[cs:si + _X_OFFSET], 0b00h
+	mov word[cs:si + _Y_OFFSET], 600h
+	mov word[cs:si + _TX_OFFSET], 0b00h
+	mov word[cs:si + _TY_OFFSET], 600h
+
+	mov si, Bombs
+	mov cx, TotalBomb
+
+	ClearBombs:
+		mov byte[cs:(si + _USED_B_OFFSET)], 0
+		add si, BombDataSize
+	loop ClearBombs
+
+	mov si, Powers
+	mov cx, TotalPower
+	ClearPowers:
+		mov byte[cs:si + _USED_P_OFFSET], 0
+		add si, PowerSize
+	loop ClearPowers
+
+	mov byte[cs:PlayerHP], 1
+	mov byte[cs:BossHP], BossMaxHP
+
+
+
+	mov byte[cs:IsStartGame], 1
+	ret
 
 DrawMap:
 	pusha
@@ -1020,15 +1084,8 @@ IsPassedPlayer:
 	pop dx
 	ret
 
-WKCNINTTimer:
-
-	push 0
-	call Update
-
-	call DrawMap
-	call DrawHP
-
-	;FootBall
+UpdateFootball:
+	;Football
 
 	cmp byte[cs:FootBallMaxNum], TotalBomb
 	je NoFBInc
@@ -1132,31 +1189,9 @@ WKCNINTTimer:
 
 	NoFootBall:
 
-	;Bombs
-	mov si, Bombs
-	mov cx, TotalBomb
+	ret
 
-	UpdateBombs:
-	cmp byte[cs:(si + _USED_B_OFFSET)], 0
-	je NoUsedBomb
-	call UpdateBomb
-
-	cmp byte[cs:(si + _USED_B_OFFSET)], 0
-	je NoUsedBomb
-
-	call DrawBomb
-
-	NoUsedBomb:
-
-	add si, BombDataSize
-	loop UpdateBombs
-
-	;Roles
-	mov si, Players
-	call KeyJudge
-	call UpdatePlayer
-	call DrawPlayer
-
+UpdateBoss:
 	;Boss
 	cmp byte[cs:BossHP], 0
 	je BOSSDEAD
@@ -1195,12 +1230,13 @@ WKCNINTTimer:
 	call DrawPlayer
 
 	BOSSDEAD:
+	ret
 
-	;Power
+UpdatePower:
 	mov si, Powers
 	mov cx, TotalPower
 
-	UpdatePower:
+	UpdatePowerIn:
 	cmp byte[cs:si + _USED_P_OFFSET], 0
 	je NextPower 
 	dec word[cs:si + _COUNT_P_OFFSET]
@@ -1238,9 +1274,94 @@ WKCNINTTimer:
 
 	NextPower:	
 	add si, PowerSize
-	loop UpdatePower 
+	loop UpdatePowerIn 
+
+	ret
+
+WKCNINTTimer:
+
+	cmp byte[cs:IsStartGame], 0
+	je NOTSTARTGAME
+
+
+	HAVESTARTGAME:
+	push 0
+	call Update
+
+	call DrawMap
+	call DrawHP
+
+	call UpdateFootball
+
+	;Bombs
+	mov si, Bombs
+	mov cx, TotalBomb
+
+	UpdateBombs:
+	cmp byte[cs:(si + _USED_B_OFFSET)], 0
+	je NoUsedBomb
+	call UpdateBomb
+
+	cmp byte[cs:(si + _USED_B_OFFSET)], 0
+	je NoUsedBomb
+
+	call DrawBomb
+
+	NoUsedBomb:
+
+	add si, BombDataSize
+	loop UpdateBombs
+
+	;Roles
+	cmp byte[cs:PlayerHP], 0
+	je PlayerDEAD
+	mov si, Players
+	call KeyJudge
+	call UpdatePlayer
+	call DrawPlayer
+	PlayerDEAD:
+
+	call UpdateBoss
+
+	;Power
+	call UpdatePower
+
+	;Info
+	cmp byte[cs:PlayerHP], 0
+	je LOSE
+	cmp byte[cs:BossHP], 0
+	je WIN
+	jmp INFOEND
+
+	WIN:
+	mov word[cs:DrawRectW], 70 
+	mov word[cs:DrawRectH], 35 
+	mov word[cs:DrawSegment], WIN_SEG
+	mov bx, 0
+	mov cx, 30
+	mov dx, 30 
+	call DRAW
+	jmp INFOPRESS
+
+	LOSE:
+	mov word[cs:DrawRectW], 70 
+	mov word[cs:DrawRectH], 35 
+	mov word[cs:DrawSegment], LOSE_SEG
+	mov bx, 0
+	mov cx, 30
+	mov dx, 30 
+	call DRAW
+	jmp INFOPRESS
+
+	INFOPRESS:
+	mov byte[cs:IsStartGame], 0
+
+	INFOEND:
+
 
 	call UpdateScreen
+
+	NOTSTARTGAME:
 
 	mov al,20h
 	out 20h,al
@@ -1362,11 +1483,16 @@ FOOTBALL db "FOOTBALLRES"
 PEOPLE db "PEOPLE  RES"
 BOSSName db "BOSS    RES"
 PowerName db "POWER   RES"
+WinName db "WIN     RES"
+LoseName db "LOSE    RES"
+TitleName db "TITLE   RES"
 
 FootBallTC dw FootballTime * UpdateTimes
 FootBallNum db 0
 FootBallMaxNum db 3
 FootBallIncCount dw FootballIncTime * UpdateTimes
+
+IsStartGame db 0
 
 MAP0:
 %include "map0.asm"
