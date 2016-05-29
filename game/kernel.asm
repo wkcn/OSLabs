@@ -181,6 +181,13 @@ StartGame:
 		add si, PowerSize
 	loop ClearPowers
 
+	mov si, STATE_DATA
+	mov cx, WinRow * WinCol
+	ClearState:
+		mov byte[cs:si], 0
+		inc si
+	loop ClearState
+
 	mov byte[cs:PlayerHP], 1
 	mov byte[cs:BossHP], BossMaxHP
 
