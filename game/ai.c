@@ -2,7 +2,10 @@
 
 #define WinCol 20
 #define WinRow 12
+#define UpdateTimes 60
+#define NOHARMTIME 3
 #define TotalBomb 20
+#define PowerFlag 0x02
 
 typedef uint8_t db;
 typedef uint16_t dw;
@@ -40,9 +43,10 @@ extern Player Players[2];
 extern uint8_t PASSED_DATA[WinRow][WinCol];
 extern uint8_t STATE_DATA[WinRow][WinCol];
 extern Bomb Bombs[TotalBomb];
+extern db PlayerHP, BossHP; 
+extern dw PlayerNOHARM, BossNOHARM;
 
 uint16_t costMap[WinRow][WinCol];
-
 
 __attribute__((regparm(3)))
 void PowerGo(Bomb *b, uint16_t ax, uint16_t ay){
@@ -73,6 +77,28 @@ uint8_t IsPassed(uint16_t x, uint16_t y){
 	return 1;
 }
 
+void Update(){
+	if (PlayerNOHARM > 0)--PlayerNOHARM;
+	else {
+		Player *r = &Players[0];
+		uint16_t x = (r->x + 0x80) >> 8;
+		uint16_t y = (r->y + 0x80) >> 8;
+		if (STATE_DATA[y][x] == PowerFlag){
+			PlayerNOHARM = UpdateTimes * NOHARMTIME;
+			if(PlayerHP > 0)--PlayerHP;
+		}
+	}
+	if (BossNOHARM > 0)--BossNOHARM;
+	else {
+		Player *r = &Players[1];
+		uint16_t x = (r->x + 0x80) >> 8;
+		uint16_t y = (r->y + 0x80) >> 8;
+		if (STATE_DATA[y][x] == PowerFlag){
+			BossNOHARM = UpdateTimes * NOHARMTIME;
+			if(BossHP > 0)--BossHP;
+		}
+	}
+}
 
 void AI(){
 	Player *ai = &Players[1];

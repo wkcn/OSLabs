@@ -2,6 +2,7 @@ BITS 16
 [global _start]
 [extern main]
 [extern AI]
+[extern Update]
 
 
 [global Players]
@@ -10,12 +11,18 @@ BITS 16
 [global PASSED_DATA]
 [global STATE_DATA]
 
+
+[global PlayerHP]
+[global PlayerNOHARM]
+[global BossHP]
+[global BossNOHARM]
+
 WinCol equ 20
 WinRow equ 12
 GridWidth equ 16
 UpdateTimes equ 60
 
-VideoBuffer equ 0x8000
+VideoBuffer equ 0x7000
 
 MAPPIC0_SEG equ 0x4000
 HUOYING_SEG equ MAPPIC0_SEG + 0x800 
@@ -23,6 +30,8 @@ PEOPLE_SEG equ HUOYING_SEG + 0x800
 FOOTBALL_SEG equ PEOPLE_SEG + 0x200
 BOSS_SEG equ FOOTBALL_SEG + 0x200
 POWER_SEG equ BOSS_SEG + 0x800 
+
+BossMaxHP equ 10
 
 PowerTime equ 1
 BombTime equ 4
@@ -77,7 +86,7 @@ _start:
 	int 10h
 
 	;视频模式
-	;使用VGA 320x400 256色
+	;使用VGA 320x200 256色
 	mov ah, 0
 	mov al, 13h
 	int 10h
@@ -175,6 +184,60 @@ DrawMapLayer:
 
 	popa
 
+	ret
+
+
+DrawHP:
+	;320 * 200
+	;8像素
+	mov ax, VideoBuffer
+	mov es, ax
+
+	mov bx, 320 * 192
+	mov cx, 320 * 8
+	DRAWBUTTOM:
+		mov byte[es:bx], 00000001b
+		inc bx
+	loop DRAWBUTTOM
+
+	mov ax, 32
+	mov bl, byte[cs:BossHP]
+	mul bl
+
+	;不知道为什么，显示在最下方会有刷新问题
+	mov cx, 4
+	mov bx, 0;320 * 192
+
+	cmp ax, 0
+	je DRAWHPEND
+
+	DrawHPIN:
+		push ax
+		push bx
+		push cx
+
+		mov cx, 320
+
+		HPPot:	
+			mov byte[es:bx], 11100000b
+			inc bx
+			dec cx
+			dec ax
+		jnz HPPot
+
+		jcxz HPBE
+		HPB:
+			mov byte[es:bx], 00100000b
+			inc bx
+		loop HPB
+
+		HPBE:
+		pop cx
+		pop bx
+		pop ax
+		add bx, 320
+	loop DrawHPIN
+	DRAWHPEND:
 	ret
 
 DrawPlayer:
@@ -802,6 +865,9 @@ KeyJudge:
 	jmp KEYEND ; 暂时不允许角色自己放泡泡
 	cmp ax, KEY_SPACEBAR
 	jne KEYEND
+
+	;mov byte[cs:BossHP], 3
+
 	mov cx, word [cs:(si + _X_OFFSET)]
 	mov dx, word [cs:(si + _Y_OFFSET)]
 	add cx, 0x80
@@ -875,7 +941,7 @@ UpdateScreen:
 	mov es, ax
 	mov si, 0
 	mov di, 0
-	mov cx, WinCol * WinRow * GridWidth * GridWidth/ 2
+	mov cx, 320 * 200 / 2;WinCol * WinRow * GridWidth * GridWidth/ 2
 	rep movsw
 	pop ax
 	pop di
@@ -955,7 +1021,12 @@ IsPassedPlayer:
 	ret
 
 WKCNINTTimer:
+
+	push 0
+	call Update
+
 	call DrawMap
+	call DrawHP
 
 	;FootBall
 
@@ -1087,6 +1158,8 @@ WKCNINTTimer:
 	call DrawPlayer
 
 	;Boss
+	cmp byte[cs:BossHP], 0
+	je BOSSDEAD
 	;Boss Skill
 	mov si, BOSS
 	mov cx, word[cs: si + _X_OFFSET]
@@ -1121,6 +1194,7 @@ WKCNINTTimer:
 	call UpdatePlayer
 	call DrawPlayer
 
+	BOSSDEAD:
 
 	;Power
 	mov si, Powers
@@ -1273,6 +1347,13 @@ FirstPowersEnd:
 
 PowerSize equ FirstPowersEnd - Powers
 times PowerSize * WinCol * WinRow db 0
+
+HPs:
+	PlayerHP db 1
+	BossHP db BossMaxHP
+NOHARM:
+	PlayerNOHARM dw 0
+	BossNOHARM dw 0
 
 
 MAPPIC0 db "MAPPIC  RES"
