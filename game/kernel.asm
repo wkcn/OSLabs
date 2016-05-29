@@ -1,6 +1,14 @@
 BITS 16
 [global _start]
 [extern main]
+[extern AI]
+
+
+[global Players]
+[global Bombs]
+[global Powers]
+[global PASSED_DATA]
+[global STATE_DATA]
 
 WinCol equ 20
 WinRow equ 12
@@ -1078,6 +1086,37 @@ WKCNINTTimer:
 	call UpdatePlayer
 	call DrawPlayer
 
+	;Boss
+	;Boss Skill
+	mov si, BOSS
+	mov cx, word[cs: si + _X_OFFSET]
+	mov dx, word[cs: si + _Y_OFFSET]
+	add cx, 0x80
+	add dx, 0x80
+	shr cx, 8
+	shr dx, 8
+	%macro BossSkill 2
+		push cx
+		push dx
+		add cx, %1
+		add dx, %2
+		TQ %1, %2
+		pop dx
+		pop cx
+	%endmacro
+
+	BossSkill 0,1
+	BossSkill -1,0
+	BossSkill 1,0
+	BossSkill 0,-1
+
+	BossSkill -1,-1
+	BossSkill 1,-1
+	BossSkill 1,1
+	BossSkill -1,1
+
+	push 0
+	call AI
 	mov si, BOSS
 	call UpdatePlayer
 	call DrawPlayer
@@ -1178,7 +1217,7 @@ BOSS:
 	_TX2	dw 0b00h
 	_TY2	dw 600h
 	_ANI2 dw 0
-	_V2	dw 0x30
+	_V2	dw 0x08
 
 
 %macro SetOffset_B 1

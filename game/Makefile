@@ -4,8 +4,8 @@ KITS_DIR = kits
 SOURCE_DIR = .
 RESOURCE_DIR = .
 IMAGE_NAME= MiraiOS.img
-CC = g++
-CFLAGS = -Iinclude -c -m16 -march=i386 -masm=intel -nostdlib -ffreestanding -mpreferred-stack-boundary=2 -lgcc -shared -std=c++11 -Wno-int-to-void-pointer-cast -fpermissive
+CC = gcc
+CFLAGS = -Iinclude -c -m16 -march=i386 -masm=intel -nostdlib -ffreestanding -mpreferred-stack-boundary=2 -lgcc -shared
 
 AS = nasm
 ASFLAGS =
@@ -60,8 +60,8 @@ cp_resource:
 loadknl.bin: $(SOURCE_DIR)/loadknl.asm
 	$(AS) $(ASFLAGS) -f bin $^ -o $(BUILD_DIR)/$@
 
-kernel.bin: kernel.o
-	$(LD) $(LDFLAGS) -Ttext 0x7e00 --oformat binary $(BUILD_DIR)/kernel.o -o $(BUILD_DIR)/$@
+kernel.bin: kernel.o ai.o
+	$(LD) $(LDFLAGS) -Ttext 0x7e00 --oformat binary $(BUILD_DIR)/kernel.o $(BUILD_DIR)/ai.o -o $(BUILD_DIR)/$@
 
 
 %.s: %.cpp
