@@ -19,7 +19,7 @@ POWER_SEG equ BOSS_SEG + 0x800
 PowerTime equ 1
 BombTime equ 4
 FootballTime equ 2
-TQP equ 3 ; 踢球最大距离
+TQP equ 5 ; 踢球最大距离
 
 ;state
 BombFlag equ 0x01
@@ -587,6 +587,7 @@ UpdateBomb:
 
 	dec word [cs:si + _JUMP_COUNT_B_OFFSET]
 	jnz JumpCountNotZero
+	;跳跃结束时， 设置FLAG
 	mov cx, word [cs:si + _TX_B_OFFSET]
 	mov dx, word [cs:si + _TY_B_OFFSET]
 	shr cx, 8
@@ -599,9 +600,12 @@ UpdateBomb:
 	mov byte[cs:STATE_DATA + bx], BombFlag
 	JumpCountNotZero:
 
+	;跳跃处理
 	mov cx, word [cs:(si + _X_B_OFFSET)]
 	mov bx, word [cs:si + _JUMP_COUNT_B_OFFSET]
 	mov ax, bx
+	; ax = jump_count
+	; cx = x
 	mul cx
 	add ax, word [cs:si + _TX_B_OFFSET]
 	inc bx
@@ -623,46 +627,59 @@ UpdateBomb:
 	popa
 	ret
 
-TQX dw 0
-TQY dw 0
+TQAX dw 0
+TQAY dw 0
 FBInd dw 0
 FBpos dw 0
 
 TQIN:
 	;首先判断(cx,dx)是否有足球
+	push dx
+	push cx
 	mov ax, dx
 	mov dx, WinCol
 	mul dx
-	add ax, dx
+	add ax, cx
 	mov bx, ax
 	cmp byte [cs:STATE_DATA + bx], BombFlag
-	jne NOFB
+	jne NOFBIN
 	;存在足球
-	mov word [cs:FBpos], bx; 保存位置
+	;mov word [cs:FBpos], bx; 保存位置
+	mov byte [cs:STATE_DATA + bx], 0
+	pop cx
+	pop dx
+	jmp SelectFBEnd
+
+	;要特别注意这种压栈后跳出的情况
+	NOFBIN:
+	pop cx
+	pop dx
+	jmp NOFB
+
+	SelectFBEnd:
 
 	mov si, Bombs
+	mov ax, cx
 	mov cx, TotalBomb
-	mov ah, byte [cs:TQX + 1] 
-	mov al, byte [cs:TQY + 1] 
 	FindFB:
-		cmp byte[cs:si + _X_B_OFFSET + 1], ah
+		cmp byte[cs:si + _USED_B_OFFSET], 1
 		jne NextFB
-		cmp byte[cs:si + _Y_B_OFFSET + 1], al
+		cmp byte[cs:si + _X_B_OFFSET + 1], al
+		jne NextFB
+		cmp byte[cs:si + _Y_B_OFFSET + 1], dl
 		jne NextFB
 		jmp FoundFB
 		NextFB:
+		add si, BombDataSize
 	loop FindFB
 	FoundFB:
 	;si is football	
-	xor cx, cx
-	xor dx, dx
-	mov cl, ah
-	mov dl, al
+	mov cx, ax
 	mov ax, TQP
-	mov word [cs:si + _JUMP_COUNT_B_OFFSET], 10
+	mov word [cs:si + _JUMP_COUNT_B_OFFSET], 3
 	TT:
-		add cx, word[cs:TQX]
-		add dx, word[cs:TQY]
+		add cx, word[cs:TQAX]
+		add dx, word[cs:TQAY]
 		call IsPassedPlayer
 		jne TTNEXT
 		push cx
@@ -675,7 +692,8 @@ TQIN:
 		pop dx
 		pop cx
 		TTNEXT:
-	loop TT
+		dec ax
+	jnz TT
 	TTEND:
 
 	NOFB:
@@ -683,8 +701,8 @@ TQIN:
 
 %macro TQ 2
 	pusha
-	mov word[cs:TQX], %1
-	mov word[cs:TQY], %2
+	mov word[cs:TQAX], %1
+	mov word[cs:TQAY], %2
 	call TQIN
 	popa
 %endmacro
