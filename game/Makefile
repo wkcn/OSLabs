@@ -1,14 +1,15 @@
 BUILD_DIR = build
 DISK_DIR = disk
 KITS_DIR = kits
-SOURCE_DIR = .
-RESOURCE_DIR = .
-IMAGE_NAME= MiraiOS.img
+SOURCE_DIR = source
+RESOURCE_DIR = res
+IMAGE_NAME= HappyQQT.img
+
 CC = gcc
 CFLAGS = -Iinclude -c -m16 -march=i386 -masm=intel -nostdlib -ffreestanding -mpreferred-stack-boundary=2 -lgcc -shared
 
 AS = nasm
-ASFLAGS =
+ASFLAGS = -Iinclude/
 LD = ld
 LDFLAGS = -m elf_i386 -N
 
@@ -19,7 +20,7 @@ QEMUFLAGS = -fda
 BOCHS = bochs
 BOCHSFLAGS = -q -f bochsrc.bxrc
 
-all: build_dir write_image write_knl cp_resource build_progs
+all: build_dir write_image write_knl build_progs
 
 
 build_dir:
@@ -49,15 +50,6 @@ build_progs: mappic.res huoying.res football.res people.res boss.res power.res \
 
 	sudo umount $(DISK_DIR)/
 
-cp_resource: 
-	sudo mount -o loop $(IMAGE_NAME) disk/
-
-	for name in $^; do\
-		sudo cp $(RESOURCE_DIR)/$$name $(DISK_DIR)/;\
-	done
-
-	sudo umount $(DISK_DIR)/
-
 loadknl.bin: $(SOURCE_DIR)/loadknl.asm
 	$(AS) $(ASFLAGS) -f bin $^ -o $(BUILD_DIR)/$@
 
@@ -67,13 +59,13 @@ kernel.bin: kernel.o ai.o
 
 %.s: %.cpp
 	$(CC) $(CFLAGS) -S $< -o $(BUILD_DIR)/$@ 
-%.o: %.c
+%.o: $(SOURCE_DIR)/%.c
 	$(CC) $(CFLAGS) $< -o $(BUILD_DIR)/$@ 
 %.o: $(SOURCE_DIR)/%.cpp
 	$(CC) $(CFLAGS) $< -o $(BUILD_DIR)/$@ 
 %.o: $(SOURCE_DIR)/%.asm
 	$(AS) $(ASFLAGS) -f elf32 $^ -o $(BUILD_DIR)/$@
-%.res: $(SOURCE_DIR)/%.asm
+%.res: $(RESOURCE_DIR)/%.asm
 	$(AS) $(ASFLAGS) $^ -o $(BUILD_DIR)/$@
 %.com: %.o header.o
 	#$(LD) $(LDFLAGS) -Ttext 0x100 --oformat binary $(BUILD_DIR)/header.o $(BUILD_DIR)/$< -o $(BUILD_DIR)/$@

@@ -623,7 +623,7 @@ private_colormap: enabled=0
 # The optional parameter 'write_protected' can be used to control the media
 # write protect switch. By default it is turned off.
 #=======================================================================
-floppya: 1_44=MiraiOS.img,status=inserted
+floppya: 1_44=HappyQQT.img,status=inserted
 #floppya: 1_44=boot.img,status=inserted
 #floppya: 1_44=/dev/fd0, status=inserted
 #floppya: image=../1.44, status=inserted

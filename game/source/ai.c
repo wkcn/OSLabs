@@ -48,6 +48,15 @@ extern dw PlayerNOHARM, BossNOHARM;
 
 uint16_t costMap[WinRow][WinCol];
 
+__attribute__((regparm(2)))
+uint8_t IsPassed(uint16_t x, uint16_t y){
+	if (x >= WinCol)return 0;
+	if (y >= WinRow)return 0;
+	if (PASSED_DATA[y][x])return 0;
+	if (STATE_DATA[y][x])return 0;
+	return 1;
+}
+
 __attribute__((regparm(3)))
 void PowerGo(Bomb *b, uint16_t ax, uint16_t ay){
 	db power = b->power;
@@ -56,8 +65,9 @@ void PowerGo(Bomb *b, uint16_t ax, uint16_t ay){
 	for (db i = 0;i < power;++i){
 		x += ax;
 		y += ay;
-		if (x >= WinCol || y >= WinRow)continue;
+		if (!IsPassed(x,y))break;
 		costMap[y][x] += power;
+		--power;
 	}	
 }
 
@@ -66,15 +76,6 @@ uint16_t GetCost(uint16_t x, uint16_t y){
 	if (x >= WinCol)return 0;
 	if (y >= WinRow)return 0;
 	return costMap[y][x];
-}
-
-__attribute__((regparm(2)))
-uint8_t IsPassed(uint16_t x, uint16_t y){
-	if (x >= WinCol)return 0;
-	if (y >= WinRow)return 0;
-	if (PASSED_DATA[y][x])return 0;
-	if (STATE_DATA[y][x])return 0;
-	return 1;
 }
 
 void Update(){
@@ -106,7 +107,7 @@ void AI(){
 	for (int r = 0;r < WinRow;++r){
 		for (int c = 0;c < WinCol;++c){
 			costMap[r][c] = 0;
-			if (STATE_DATA[r][c])costMap[r][c]++;
+			if (STATE_DATA[r][c])costMap[r][c] += 5;
 		}
 	}
 	for (int i = 0;i < TotalBomb;++i){
@@ -114,6 +115,10 @@ void AI(){
 		uint16_t x = (Bombs[i].x + 0x80) >> 8;
 		uint16_t y = (Bombs[i].y + 0x80) >> 8;
 		costMap[y][x] += Bombs[i].power;
+		PowerGo(&Bombs[i],0,1);
+		PowerGo(&Bombs[i],-1,0);
+		PowerGo(&Bombs[i],1,0);
+		PowerGo(&Bombs[i],0,-1);
 	}
 	uint16_t x = (ai->x + 0x80) >> 8;
 	uint16_t y = (ai->y + 0x80) >> 8;

@@ -34,7 +34,7 @@ WIN_SEG equ POWER_SEG + 0x200
 LOSE_SEG equ WIN_SEG + 0x200
 TITLE_SEG equ LOSE_SEG + 0x200
 
-BossMaxHP equ 10
+BossMaxHP equ 5
 
 PowerTime equ 1
 BombTime equ 4
@@ -126,8 +126,10 @@ _start:
 
 	sti
 
+	;重启游戏
 	REFRESH_GAME:
 
+	;显示游戏标题
 	mov word[cs:DrawRectW], 320 
 	mov word[cs:DrawRectH], 200
 	mov word[cs:DrawSegment], TITLE_SEG
@@ -137,24 +139,37 @@ _start:
 	call DRAW
 	call UpdateScreen
 
+	;等待任意按键以开始游戏
 	mov ah, 0
 	int 16h
 	call StartGame
 
 
+	;在游戏停止时判断是否按下空格退回标题界面
 	TEST_PRESS:
 	cmp byte[cs:IsStartGame], 0
 	jne TEST_PRESS
-	mov ah, 0
-	int 16h
+	call CheckPress
 	jmp REFRESH_GAME
 
 	jmp $
 
+;FAT12文件读取
 %include "disk.asm"
+;伪随机数生成
 %include "rand.asm"
 
+;检查是否按下空格（等待）
+CheckPress:
+	CheckP:
+	mov ah, 0
+	int 16h
+	cmp ax, KEY_SPACEBAR
+	jne CheckP
+	ret
+
 StartGame:
+	;设置参数
 	mov si, Players
 	mov word[cs:si + _X_OFFSET], 700h
 	mov word[cs:si + _Y_OFFSET], 600h
@@ -191,11 +206,16 @@ StartGame:
 	mov byte[cs:PlayerHP], 1
 	mov byte[cs:BossHP], BossMaxHP
 
+	mov word[cs:FootBallTC], FootballTime * UpdateTimes
+	mov byte[cs:FootBallNum], 0
+	mov byte[cs:FootBallMaxNum], 3
+	mov word[cs:FootBallIncCount], FootballIncTime * UpdateTimes
 
 
 	mov byte[cs:IsStartGame], 1
 	ret
 
+;绘制地图
 DrawMap:
 	pusha
 
@@ -213,6 +233,7 @@ DrawMap:
 	popa
 	ret
 
+;绘制某层地图
 DrawMapLayer:
 
 	pusha 
@@ -271,7 +292,7 @@ DrawHP:
 		inc bx
 	loop DRAWBUTTOM
 
-	mov ax, 32
+	mov ax, 320 / BossMaxHP
 	mov bl, byte[cs:BossHP]
 	mul bl
 
@@ -821,7 +842,7 @@ TQIN:
 	;si is football	
 	mov cx, ax
 	mov ax, TQP
-	mov word [cs:si + _JUMP_COUNT_B_OFFSET], 3
+	mov word [cs:si + _JUMP_COUNT_B_OFFSET], 1
 	TT:
 		add cx, word[cs:TQAX]
 		add dx, word[cs:TQAY]
