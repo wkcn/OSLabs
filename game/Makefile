@@ -6,7 +6,7 @@ RESOURCE_DIR = res
 IMAGE_NAME= HappyQQT.img
 
 CC = gcc
-CFLAGS = -Iinclude -c -m16 -march=i386 -masm=intel -nostdlib -ffreestanding -mpreferred-stack-boundary=2 -lgcc -shared
+CFLAGS = -Iinclude -c -m16 -march=i386 -masm=intel -nostdlib -ffreestanding -mpreferred-stack-boundary=2 -lgcc -shared -fno-pie -fno-stack-protector
 
 AS = nasm
 ASFLAGS = -Iinclude/
@@ -14,7 +14,7 @@ LD = ld
 LDFLAGS = -m elf_i386 -N
 
 #如果不加-fda, 虽然能读Loader, 但无法读扇区:-(
-QEMU = qemu-system-i386
+QEMU = qemu-system-x86_64
 QEMUFLAGS = -fda
 
 BOCHS = bochs
