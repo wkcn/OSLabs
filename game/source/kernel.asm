@@ -422,6 +422,7 @@ DrawPower:
 ;cx = column
 ;dx = row
 DRAW:
+    cli
 	push ds
 	push es
 	pusha
@@ -465,6 +466,7 @@ DRAW:
 	popa
 	pop es
 	pop ds
+    sti
 	ret
 
 UpdatePlayer:
